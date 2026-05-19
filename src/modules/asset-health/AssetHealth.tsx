@@ -1,5 +1,6 @@
+import { useState, useCallback } from 'react';
 import { useSDK } from '@contentful/react-apps-toolkit';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Flex,
   Text,
@@ -14,6 +15,7 @@ import {
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openAssetInNewTab } from '../../lib/openInNewTab';
+import type { ModuleProps } from '../types';
 
 interface AssetRow {
   id: string;
@@ -80,14 +82,50 @@ function MetricPill({ label, value, variant }: { label: string; value: number; v
   );
 }
 
-export function AssetHealth() {
+export function AssetHealth({ installationParams }: ModuleProps) {
   const sdk = useSDK();
+  const queryClient = useQueryClient();
+  const [generatingAlt, setGeneratingAlt] = useState<Record<string, boolean>>({});
+  const [altErrors, setAltErrors] = useState<Record<string, string>>({});
+
+  const altTextActionId = installationParams.altTextActionId ?? '';
+  const appId: string = (sdk as any).ids?.app ?? '';
 
   const { data: assets, isLoading, refetch } = useQuery({
     queryKey: ['asset-health'],
     queryFn: () => fetchAssets(sdk),
     staleTime: 5 * 60 * 1000,
   });
+
+  const handleGenerateAltText = useCallback(async (asset: AssetRow) => {
+    setGeneratingAlt((g) => ({ ...g, [asset.id]: true }));
+    setAltErrors((e) => { const n = { ...e }; delete n[asset.id]; return n; });
+
+    try {
+      const res = await (sdk.cma as any).appActionCall.createWithResponse(
+        { appActionId: altTextActionId, appDefinitionId: appId },
+        { parameters: { assetId: asset.id, imageUrl: asset.url, locale: (sdk as any).ids?.environment ? 'en-US' : 'en-US' } },
+      );
+
+      const altText: string = res?.response?.body?.altText ?? res?.body?.altText ?? '';
+      if (!altText) throw new Error('AI action returned no alt text.');
+
+      // Write alt text back to asset description field
+      const localesRes = await (sdk.cma as any).locale.getMany({});
+      const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? 'en-US';
+      const fullAsset = await (sdk.cma as any).asset.get({ assetId: asset.id });
+      if (!fullAsset.fields.description) fullAsset.fields.description = {};
+      fullAsset.fields.description[defaultLocale] = altText;
+      await (sdk.cma as any).asset.update({ assetId: asset.id }, fullAsset);
+
+      await queryClient.invalidateQueries({ queryKey: ['asset-health'] });
+      sdk.notifier.success('Alt text generated and saved.');
+    } catch (err: any) {
+      setAltErrors((e) => ({ ...e, [asset.id]: err?.message ?? 'Failed to generate alt text.' }));
+    } finally {
+      setGeneratingAlt((g) => { const n = { ...g }; delete n[asset.id]; return n; });
+    }
+  }, [sdk, altTextActionId, appId, queryClient]);
 
   if (isLoading) {
     return (
@@ -165,71 +203,126 @@ export function AssetHealth() {
           <Tabs.Tab panelId="oversized">Oversized ({oversized.length})</Tabs.Tab>
         </Tabs.List>
 
-        {[
-          { id: 'orphans', rows: orphans, emptyMsg: 'No orphaned assets — great!' },
-          { id: 'alt', rows: missingAlt, emptyMsg: 'All assets have alt text — great!' },
-          { id: 'oversized', rows: oversized, emptyMsg: 'No oversized assets found.' },
-        ].map(({ id, rows, emptyMsg }) => (
-          <Tabs.Panel key={id} id={id}>
-            {rows.length > 0 && (
-              <Flex justifyContent="flex-end" marginBottom="spacingS">
-                <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport(id, rows)}>
-                  Export list CSV
-                </Button>
-              </Flex>
-            )}
-            {rows.length === 0 ? (
-              <Note variant="positive">{emptyMsg}</Note>
-            ) : (
-              <Table>
-                <Table.Head>
-                  <Table.Row>
-                    <Table.Cell>Asset</Table.Cell>
-                    <Table.Cell>Type</Table.Cell>
-                    <Table.Cell>Size</Table.Cell>
-                    <Table.Cell>Alt text</Table.Cell>
+        {/* Orphaned */}
+        <Tabs.Panel id="orphans">
+          {orphans.length > 0 && (
+            <Flex justifyContent="flex-end" marginBottom="spacingS">
+              <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport('orphans', orphans)}>Export list CSV</Button>
+            </Flex>
+          )}
+          {orphans.length === 0 ? <Note variant="positive">No orphaned assets — great!</Note> : (
+            <Table>
+              <Table.Head><Table.Row>
+                <Table.Cell>Asset</Table.Cell><Table.Cell>Type</Table.Cell><Table.Cell>Size</Table.Cell><Table.Cell>Alt text</Table.Cell>
+              </Table.Row></Table.Head>
+              <Table.Body>
+                {orphans.map((a) => (
+                  <Table.Row key={a.id}>
+                    <Table.Cell>
+                      <Flex gap="spacingXs" alignItems="center">
+                        {a.contentType.startsWith('image/') && a.url && <img src={`${a.url}?w=32&h=32&fit=thumb`} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
+                        <Text style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }} onClick={() => openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, a.id)}>{a.title}</Text>
+                      </Flex>
+                    </Table.Cell>
+                    <Table.Cell><Text fontColor="gray500" fontSize="fontSizeS">{a.contentType}</Text></Table.Cell>
+                    <Table.Cell><Badge variant={a.size > SIZE_WARNING_BYTES ? 'warning' : 'secondary'}>{formatBytes(a.size)}</Badge></Table.Cell>
+                    <Table.Cell><Badge variant={a.hasAltText ? 'positive' : 'negative'}>{a.hasAltText ? 'Yes' : 'Missing'}</Badge></Table.Cell>
                   </Table.Row>
-                </Table.Head>
-                <Table.Body>
-                  {rows.map((a) => (
-                    <Table.Row key={a.id}>
-                      <Table.Cell>
+                ))}
+              </Table.Body>
+            </Table>
+          )}
+        </Tabs.Panel>
+
+        {/* Missing alt text — with AI generate button */}
+        <Tabs.Panel id="alt">
+          {!altTextActionId && missingAlt.length > 0 && (
+            <Note variant="neutral" style={{ marginBottom: 12 }}>
+              <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">
+                <Text fontSize="fontSizeS">
+                  <strong>Alt Text AI Action available.</strong> Configure an AI Action to generate alt text for images in one click.
+                </Text>
+                <Badge variant="secondary">Config Screen → AI Audit → Alt Text Generation</Badge>
+              </Flex>
+            </Note>
+          )}
+          {missingAlt.length > 0 && (
+            <Flex justifyContent="flex-end" marginBottom="spacingS">
+              <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport('alt', missingAlt)}>Export list CSV</Button>
+            </Flex>
+          )}
+          {missingAlt.length === 0 ? <Note variant="positive">All assets have alt text — great!</Note> : (
+            <Table>
+              <Table.Head><Table.Row>
+                <Table.Cell>Asset</Table.Cell><Table.Cell>Type</Table.Cell><Table.Cell>Size</Table.Cell>
+                <Table.Cell>{altTextActionId ? 'Generate alt text' : 'Alt text'}</Table.Cell>
+              </Table.Row></Table.Head>
+              <Table.Body>
+                {missingAlt.map((a) => (
+                  <Table.Row key={a.id}>
+                    <Table.Cell>
+                      <Flex gap="spacingXs" alignItems="center">
+                        {a.contentType.startsWith('image/') && a.url && <img src={`${a.url}?w=32&h=32&fit=thumb`} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
+                        <Text style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }} onClick={() => openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, a.id)}>{a.title}</Text>
+                      </Flex>
+                    </Table.Cell>
+                    <Table.Cell><Text fontColor="gray500" fontSize="fontSizeS">{a.contentType}</Text></Table.Cell>
+                    <Table.Cell><Badge variant={a.size > SIZE_WARNING_BYTES ? 'warning' : 'secondary'}>{formatBytes(a.size)}</Badge></Table.Cell>
+                    <Table.Cell>
+                      {altTextActionId && a.contentType.startsWith('image/') && a.url ? (
                         <Flex gap="spacingXs" alignItems="center">
-                          {a.contentType.startsWith('image/') && a.url && (
-                            <img
-                              src={`${a.url}?w=32&h=32&fit=thumb`}
-                              alt=""
-                              style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
-                            />
-                          )}
-                          <Text
-                            style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }}
-                            onClick={() => openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, a.id)}
+                          {altErrors[a.id] && <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>{altErrors[a.id]}</Text>}
+                          <Button
+                            variant="secondary"
+                            size="small"
+                            isLoading={!!generatingAlt[a.id]}
+                            isDisabled={!!generatingAlt[a.id]}
+                            onClick={() => handleGenerateAltText(a)}
                           >
-                            {a.title}
-                          </Text>
+                            Generate ✦
+                          </Button>
                         </Flex>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Text fontColor="gray500" fontSize="fontSizeS">{a.contentType}</Text>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Badge variant={a.size > SIZE_WARNING_BYTES ? 'warning' : 'secondary'}>
-                          {formatBytes(a.size)}
-                        </Badge>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Badge variant={a.hasAltText ? 'positive' : 'negative'}>
-                          {a.hasAltText ? 'Yes' : 'Missing'}
-                        </Badge>
-                      </Table.Cell>
-                    </Table.Row>
-                  ))}
-                </Table.Body>
-              </Table>
-            )}
-          </Tabs.Panel>
-        ))}
+                      ) : (
+                        <Badge variant="negative">Missing</Badge>
+                      )}
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          )}
+        </Tabs.Panel>
+
+        {/* Oversized */}
+        <Tabs.Panel id="oversized">
+          {oversized.length > 0 && (
+            <Flex justifyContent="flex-end" marginBottom="spacingS">
+              <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport('oversized', oversized)}>Export list CSV</Button>
+            </Flex>
+          )}
+          {oversized.length === 0 ? <Note variant="positive">No oversized assets found.</Note> : (
+            <Table>
+              <Table.Head><Table.Row>
+                <Table.Cell>Asset</Table.Cell><Table.Cell>Type</Table.Cell><Table.Cell>Size</Table.Cell><Table.Cell>Alt text</Table.Cell>
+              </Table.Row></Table.Head>
+              <Table.Body>
+                {oversized.map((a) => (
+                  <Table.Row key={a.id}>
+                    <Table.Cell>
+                      <Flex gap="spacingXs" alignItems="center">
+                        {a.contentType.startsWith('image/') && a.url && <img src={`${a.url}?w=32&h=32&fit=thumb`} alt="" style={{ width: 28, height: 28, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }} />}
+                        <Text style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }} onClick={() => openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, a.id)}>{a.title}</Text>
+                      </Flex>
+                    </Table.Cell>
+                    <Table.Cell><Text fontColor="gray500" fontSize="fontSizeS">{a.contentType}</Text></Table.Cell>
+                    <Table.Cell><Badge variant="warning">{formatBytes(a.size)}</Badge></Table.Cell>
+                    <Table.Cell><Badge variant={a.hasAltText ? 'positive' : 'negative'}>{a.hasAltText ? 'Yes' : 'Missing'}</Badge></Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          )}
+        </Tabs.Panel>
       </Tabs>
 
       {assets.length === 200 && (

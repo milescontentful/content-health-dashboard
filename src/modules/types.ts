@@ -87,6 +87,10 @@ export interface AppInstallationParameters {
 
   // Reference Risk — content types treated as intentional entry-points (not flagged as orphaned)
   topLevelContentTypes?: string[];
+
+  // Content Ops AI Actions
+  translationActionId?: string;   // AI Action that translates entry fields to a target locale
+  altTextActionId?: string;       // AI Action that generates alt text for an asset image
 }
 
 export interface SavedSearch {

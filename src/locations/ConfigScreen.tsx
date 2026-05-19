@@ -575,14 +575,50 @@ const ConfigScreen = () => {
               </a>
             </Note>
             <FormControl>
-              <FormControl.Label>App Action ID</FormControl.Label>
+              <FormControl.Label>Content Grading — App Action ID</FormControl.Label>
               <TextInput
                 value={(parameters as any).aiActionId ?? ''}
                 onChange={(e) => setParameters((p) => ({ ...p, aiActionId: e.target.value }))}
                 placeholder="grade-content"
               />
               <FormControl.HelpText>
-                The ID of the App Action to call for content grading (e.g. <code>grade-content</code>).
+                Accepts <code>{'{ entryId, title, body, contentType }'}</code> · Returns <code>{'{ score, summary, suggestions[] }'}</code>
+              </FormControl.HelpText>
+            </FormControl>
+
+            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '8px 0' }} />
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">Translation</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">
+              Power the <strong>Translate</strong> buttons in the Localization Coverage module.
+              The action receives source locale field values and returns translated text for each field.
+            </Text>
+            <FormControl>
+              <FormControl.Label>Translation — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                value={parameters.translationActionId ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, translationActionId: e.target.value }))}
+                placeholder="translate-entry"
+              />
+              <FormControl.HelpText>
+                Accepts <code>{'{ entryId, sourceLocale, targetLocale, fields: { [id]: string } }'}</code> · Returns <code>{'{ [fieldId]: string }'}</code>
+              </FormControl.HelpText>
+            </FormControl>
+
+            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '8px 0' }} />
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">Alt Text Generation</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">
+              Power the <strong>Generate alt text</strong> buttons in the Asset Health module.
+              The action analyses the image URL and returns a descriptive alt text string.
+            </Text>
+            <FormControl>
+              <FormControl.Label>Alt Text — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                value={parameters.altTextActionId ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, altTextActionId: e.target.value }))}
+                placeholder="generate-alt-text"
+              />
+              <FormControl.HelpText>
+                Accepts <code>{'{ assetId, imageUrl, locale }'}</code> · Returns <code>{'{ altText: string }'}</code>
               </FormControl.HelpText>
             </FormControl>
           </Flex>
