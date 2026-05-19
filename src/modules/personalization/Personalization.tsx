@@ -29,6 +29,7 @@ import {
 import { DownloadSimpleIcon, WarningIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import type { ModuleProps } from '../types';
+import { openEntryInNewTab } from '../../lib/openInNewTab';
 
 // ─── Ninetailed content type IDs ─────────────────────────────────────────────
 const NT_EXPERIENCE_CT = 'nt_experience';
@@ -374,7 +375,7 @@ export function Personalization({ installationParams }: ModuleProps) {
                           <Table.Cell>
                             <TextLink
                               as="button"
-                              onClick={() => (sdk as any).navigator?.openEntry(exp.id, { slideIn: true })}
+                              onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, exp.id)}
                             >
                               {exp.name}
                             </TextLink>
@@ -425,7 +426,7 @@ export function Personalization({ installationParams }: ModuleProps) {
                         <Table.Cell>
                           <TextLink
                             as="button"
-                            onClick={() => (sdk as any).navigator?.openEntry(aud.id, { slideIn: true })}
+                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, aud.id)}
                           >
                             {aud.name}
                           </TextLink>

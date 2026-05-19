@@ -13,6 +13,7 @@ import {
 } from '@contentful/f36-components';
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
+import { openAssetInNewTab } from '../../lib/openInNewTab';
 
 interface AssetRow {
   id: string;
@@ -182,7 +183,7 @@ export function AssetHealth() {
                           )}
                           <Text
                             style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }}
-                            onClick={() => (sdk as any).navigator?.openAsset(a.id, { slideIn: true })}
+                            onClick={() => openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, a.id)}
                           >
                             {a.title}
                           </Text>

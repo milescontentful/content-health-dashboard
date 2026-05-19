@@ -21,6 +21,7 @@ import { useSearchEntries } from '../../hooks/useSearchEntries';
 import { setFieldMetaCache } from '../../utils/queryBuilder';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import type { SearchQuery, SearchCondition } from '../types';
+import { openEntryInNewTab } from '../../lib/openInNewTab';
 
 const OPERATORS = [
   { value: 'equals', label: 'equals' },
@@ -216,7 +217,7 @@ export function SearchBuilder() {
                           <Text
                             as="span"
                             style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }}
-                            onClick={() => (sdk as any).navigator?.openEntry(entry.sys.id, { slideIn: true })}
+                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, entry.sys.id)}
                           >
                             {title || entry.sys.id}
                           </Text>

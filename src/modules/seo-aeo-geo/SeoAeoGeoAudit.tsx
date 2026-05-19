@@ -17,6 +17,7 @@ import {
 } from '@contentful/f36-components';
 import { CheckCircleIcon, XIcon, DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
+import { openEntryInNewTab } from '../../lib/openInNewTab';
 import { scoreSEO, scoreAEO, scoreGEO, type ScoreResult } from './scorer';
 
 function SimpleProgress({ value }: { value: number }) {
@@ -286,9 +287,18 @@ export function SeoAeoGeoAudit() {
                           onClick={() => setSelectedEntryId(row.id)}
                         >
                           <Table.Cell>
-                            <Text style={{ color: '#1773EB', textDecoration: 'underline' }}>
-                              {row.title}
-                            </Text>
+                            <Flex alignItems="center" gap="spacingXs">
+                              <Text style={{ color: '#1773EB', textDecoration: 'underline' }}>
+                                {row.title}
+                              </Text>
+                              <Text
+                                as="span"
+                                style={{ color: '#8c9bab', fontSize: 11 }}
+                                onClick={(e: React.MouseEvent) => { e.stopPropagation(); openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, row.id); }}
+                              >
+                                ↗
+                              </Text>
+                            </Flex>
                           </Table.Cell>
                           <Table.Cell><ScoreBadge score={row.seo.score} /></Table.Cell>
                           <Table.Cell><ScoreBadge score={row.aeo.score} /></Table.Cell>
@@ -306,7 +316,15 @@ export function SeoAeoGeoAudit() {
             <Tabs.Panel id="detail">
               <Flex flexDirection="column" gap="spacingM">
                 <Flex justifyContent="space-between" alignItems="center">
-                  <Text fontWeight="fontWeightDemiBold">{selectedEntry.title}</Text>
+                  <Flex alignItems="center" gap="spacingS">
+                    <Text fontWeight="fontWeightDemiBold">{selectedEntry.title}</Text>
+                    <Text
+                      style={{ cursor: 'pointer', color: '#1773EB', fontSize: 13 }}
+                      onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, selectedEntry.id)}
+                    >
+                      ↗ Open entry
+                    </Text>
+                  </Flex>
                   <Text
                     style={{ cursor: 'pointer', color: '#1773EB', fontSize: 13 }}
                     onClick={() => setSelectedEntryId(null)}
