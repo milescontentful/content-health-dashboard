@@ -52,7 +52,7 @@ function ScoreCard({ label, result, color }: { label: string; result: ScoreResul
         </Text>
       </Flex>
       <SimpleProgress value={result.score} />
-      <Stack flexDirection="column" spacing="spacingXs">
+      <Stack flexDirection="column" spacing="spacingXs" alignItems="flex-start">
         {result.passes.map((p) => (
           <Flex key={p} gap="spacingXs" alignItems="flex-start">
             <CheckCircleIcon size="tiny" style={{ color: '#00C459', flexShrink: 0, marginTop: 2 }} />
@@ -219,32 +219,34 @@ export function SeoAeoGeoAudit() {
   return (
     <Flex flexDirection="column" gap="spacingM">
       {/* Header row */}
-      <Flex justifyContent="space-between" alignItems="flex-end" flexWrap="wrap" gap="spacingM">
-        <Flex flexDirection="column">
+      <Flex justifyContent="space-between" alignItems="flex-start">
+        <Flex flexDirection="column" gap="spacingXs">
           <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">SEO / AEO / GEO Audit</Text>
           <Text fontColor="gray600" fontSize="fontSizeS">
             Score published entries across classic SEO, Answer Engine, and Generative Engine signals.
           </Text>
         </Flex>
-        <Flex gap="spacingS" alignItems="flex-end">
-          {auditRows && auditRows.length > 0 && (
-            <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={handleExport}>
-              Export CSV
-            </Button>
-          )}
-          <FormControl style={{ marginBottom: 0, minWidth: 220 }}>
-            <FormControl.Label>Content type</FormControl.Label>
-            <Select
-              value={contentTypeId}
-              onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
-            >
-              <Select.Option value="">Select a content type…</Select.Option>
-              {ctData?.map((ct) => (
-                <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
-              ))}
-            </Select>
-          </FormControl>
-        </Flex>
+        {auditRows && auditRows.length > 0 && (
+          <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={handleExport}>
+            Export CSV
+          </Button>
+        )}
+      </Flex>
+
+      {/* Content type picker */}
+      <Flex gap="spacingM" alignItems="flex-end">
+        <FormControl style={{ marginBottom: 0, minWidth: 220 }}>
+          <FormControl.Label>Content type</FormControl.Label>
+          <Select
+            value={contentTypeId}
+            onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
+          >
+            <Select.Option value="">Select a content type…</Select.Option>
+            {ctData?.map((ct) => (
+              <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
+            ))}
+          </Select>
+        </FormControl>
       </Flex>
 
       <ScoringRubric />
