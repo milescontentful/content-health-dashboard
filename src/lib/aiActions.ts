@@ -10,6 +10,17 @@ export function extractAiActionId(input: string): string {
   return match ? match[1] : input.trim();
 }
 
+/**
+ * Sentinel error thrown when the App SDK blocks AiAction entity access.
+ * Callers should catch this and fall back to opening the entry/asset in Contentful.
+ */
+export class AiActionNotPermittedError extends Error {
+  constructor() {
+    super('AiAction access is not permitted from within a Contentful App. Open the entry in Contentful to use the native AI action buttons.');
+    this.name = 'AiActionNotPermittedError';
+  }
+}
+
 interface AiActionContext {
   entryId?: string;
   assetId?: string;
@@ -46,7 +57,16 @@ export async function invokeAiActionAndWait(
   timeoutMs = 90_000,
 ): Promise<string> {
   // 1 — Fetch the action definition to learn its variable IDs and types
-  const actionDef = await cma.aiAction.get({ spaceId, aiActionId: actionId });
+  let actionDef: any;
+  try {
+    actionDef = await cma.aiAction.get({ spaceId, aiActionId: actionId });
+  } catch (err: any) {
+    // The App SDK blocks AiAction access — throw a typed error so callers can degrade gracefully
+    if (err?.message?.includes('AiAction') || err?.status === 403) {
+      throw new AiActionNotPermittedError();
+    }
+    throw err;
+  }
   const vars: Array<{ id: string; type: string }> = actionDef.instruction?.variables ?? [];
 
   // 2 — Map context values onto variable IDs by their declared type

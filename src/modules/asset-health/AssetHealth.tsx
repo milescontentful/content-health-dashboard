@@ -15,7 +15,7 @@ import {
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openAssetInNewTab } from '../../lib/openInNewTab';
-import { extractAiActionId, invokeAiActionAndWait } from '../../lib/aiActions';
+import { extractAiActionId, invokeAiActionAndWait, AiActionNotPermittedError } from '../../lib/aiActions';
 import type { ModuleProps } from '../types';
 
 interface AssetRow {
@@ -88,6 +88,7 @@ export function AssetHealth({ installationParams }: ModuleProps) {
   const queryClient = useQueryClient();
   const [generatingAlt, setGeneratingAlt] = useState<Record<string, boolean>>({});
   const [altErrors, setAltErrors] = useState<Record<string, string>>({});
+  const [aiBlocked, setAiBlocked] = useState(false);
 
   const altTextActionId = extractAiActionId(installationParams.altTextActionId ?? '');
   const spaceId: string = (sdk as any).ids?.space ?? '';
@@ -118,7 +119,12 @@ export function AssetHealth({ installationParams }: ModuleProps) {
       await queryClient.invalidateQueries({ queryKey: ['asset-health'] });
       sdk.notifier.success('Alt text generated and saved.');
     } catch (err: any) {
-      setAltErrors((e) => ({ ...e, [asset.id]: err?.message ?? 'Failed to generate alt text.' }));
+      if (err instanceof AiActionNotPermittedError) {
+        setAiBlocked(true);
+        openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, asset.id);
+      } else {
+        setAltErrors((e) => ({ ...e, [asset.id]: err?.message ?? 'Failed to generate alt text.' }));
+      }
     } finally {
       setGeneratingAlt((g) => { const n = { ...g }; delete n[asset.id]; return n; });
     }
@@ -233,6 +239,17 @@ export function AssetHealth({ installationParams }: ModuleProps) {
 
         {/* Missing alt text — with AI generate button */}
         <Tabs.Panel id="alt">
+          {aiBlocked && (
+            <Note variant="warning" style={{ marginBottom: 12 }}>
+              <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">
+                <Text fontSize="fontSizeS">
+                  <strong>AI Actions cannot be invoked directly from a Contentful App</strong> — the asset was opened in a new tab so you can use the native <strong>Generate alt text</strong> button there.
+                  For full in-app automation, this requires an <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-functions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>App Function</a> backend.
+                </Text>
+                <Button variant="transparent" size="small" onClick={() => setAiBlocked(false)}>Dismiss</Button>
+              </Flex>
+            </Note>
+          )}
           {!altTextActionId && missingAlt.length > 0 && (
             <Note variant="neutral" style={{ marginBottom: 12 }}>
               <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">

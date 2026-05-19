@@ -15,7 +15,7 @@ import {
   Menu,
 } from '@contentful/f36-components';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
-import { extractAiActionId, invokeAiActionAndWait } from '../../lib/aiActions';
+import { extractAiActionId, invokeAiActionAndWait, AiActionNotPermittedError } from '../../lib/aiActions';
 import type { ModuleProps } from '../types';
 
 interface LocaleField {
@@ -92,6 +92,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
   const [selectedCtId, setSelectedCtId] = useState<string>('');
   const [translating, setTranslating] = useState<Record<string, boolean>>({});
   const [translateErrors, setTranslateErrors] = useState<Record<string, string>>({});
+  const [aiBlocked, setAiBlocked] = useState(false);;
 
   const translationActionId = extractAiActionId(installationParams.translationActionId ?? '');
   const spaceId: string = (sdk as any).ids?.space ?? '';
@@ -128,12 +129,15 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
         { entryId, targetLocale, sourceLocale },
       );
 
-      // Refresh the entries list
       await queryClient.invalidateQueries({ queryKey: ['localization-entries', selectedCtId] });
-
       sdk.notifier.success(`Translated entry to ${targetLocale}`);
     } catch (err: any) {
-      setTranslateErrors((e) => ({ ...e, [key]: err?.message ?? 'Translation failed.' }));
+      if (err instanceof AiActionNotPermittedError) {
+        setAiBlocked(true);
+        openEntryInNewTab(spaceId, environmentId, entryId);
+      } else {
+        setTranslateErrors((e) => ({ ...e, [key]: err?.message ?? 'Translation failed.' }));
+      }
     } finally {
       setTranslating((t) => { const n = { ...t }; delete n[key]; return n; });
     }
@@ -192,6 +196,19 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
           <Button variant="secondary" size="small" onClick={() => { setSelectedCtId(''); refetch(); }}>Refresh</Button>
         </Flex>
       </Flex>
+
+      {/* AI Actions blocked banner */}
+      {aiBlocked && (
+        <Note variant="warning">
+          <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">
+            <Text fontSize="fontSizeS">
+              <strong>AI Actions cannot be invoked directly from a Contentful App</strong> — the entry was opened in a new tab so you can use the native <strong>Translate</strong> button there.
+              For full in-app automation, this would require an <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-functions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>App Function</a> backend.
+            </Text>
+            <Button variant="transparent" size="small" onClick={() => setAiBlocked(false)}>Dismiss</Button>
+          </Flex>
+        </Note>
+      )}
 
       {/* AI Actions banner */}
       {!translationActionId && (
