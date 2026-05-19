@@ -26,12 +26,16 @@ export async function invokeAiAction(
   actionId: string,
   variables: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const path = `/spaces/${spaceId}/environments/${environmentId}/ai_actions/${actionId}/invocations`;
-
-  const result = await cma.raw.post(path, {
-    outputFormat: 'PlainText',
-    rawVariables: variables,
+  // `sdk.cma` is a plain CMA client — rawRequest() is its top-level HTTP escape hatch.
+  // We cannot use cma.raw.post() (nested accessor not exposed in App context).
+  const result = await cma.rawRequest({
+    method: 'POST',
+    url: `/spaces/${spaceId}/environments/${environmentId}/ai_actions/${actionId}/invocations`,
+    data: {
+      outputFormat: 'PlainText',
+      rawVariables: variables,
+    },
   });
 
-  return result ?? {};
+  return (result as Record<string, unknown>) ?? {};
 }

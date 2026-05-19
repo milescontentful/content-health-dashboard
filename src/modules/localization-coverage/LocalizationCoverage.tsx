@@ -12,6 +12,7 @@ import {
   Card,
   Tooltip,
   Button,
+  Menu,
 } from '@contentful/f36-components';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
 import { extractAiActionId, invokeAiAction } from '../../lib/aiActions';
@@ -294,76 +295,104 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                         {l}
                       </th>
                     ))}
+                    {translationActionId && (
+                      <th style={{ padding: '6px 12px', borderBottom: '2px solid #e5e9ed', textAlign: 'left', fontWeight: 600, minWidth: 120 }}>
+                        Translate
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((row, i) => (
-                    <tr key={row.id} style={{ background: i % 2 === 0 ? '#fff' : '#f7f9fa' }}>
-                      <td style={{ padding: '6px 12px', maxWidth: 300 }}>
-                        <Tooltip content={`Open "${row.title}" in new tab`} placement="top">
-                          <span
-                            style={{ color: '#1773EB', cursor: 'pointer', textDecoration: 'underline', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            onClick={() => openEntryInNewTab(spaceId, environmentId, row.id)}
-                          >
-                            {row.title}
-                          </span>
-                        </Tooltip>
-                      </td>
-                      {locales.map((l) => {
-                        const key = `${row.id}-${l}`;
-                        const isSource = l === defaultLocale;
-                        const isCovered = row.locales[l];
-                        const isTranslating = !!translating[key];
-                        const error = translateErrors[key];
+                  {entries.map((row, i) => {
+                    const missingLocales = locales.filter((l) => l !== defaultLocale && !row.locales[l]);
+                    const anyTranslating = missingLocales.some((l) => translating[`${row.id}-${l}`]);
+                    const rowError = missingLocales.map((l) => translateErrors[`${row.id}-${l}`]).find(Boolean);
 
-                        return (
+                    return (
+                      <tr key={row.id} style={{ background: i % 2 === 0 ? '#fff' : '#f7f9fa' }}>
+                        <td style={{ padding: '6px 12px', maxWidth: 280 }}>
+                          <Tooltip content={`Open "${row.title}" in new tab`} placement="top">
+                            <span
+                              style={{ color: '#1773EB', cursor: 'pointer', textDecoration: 'underline', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                              onClick={() => openEntryInNewTab(spaceId, environmentId, row.id)}
+                            >
+                              {row.title}
+                            </span>
+                          </Tooltip>
+                        </td>
+                        {locales.map((l) => (
                           <td key={l} style={{ padding: '6px 12px', textAlign: 'center' }}>
-                            {isTranslating ? (
-                              <Spinner size="small" />
-                            ) : isCovered ? (
-                              <CoverageCell covered={true} />
-                            ) : isSource ? (
-                              <CoverageCell covered={false} />
-                            ) : translationActionId ? (
-                              <Tooltip content={error ?? `Translate to ${l} using AI Action`} placement="top">
-                                <button
-                                  onClick={() => handleTranslate(row.id, l, defaultLocale, row.rawFields)}
-                                  style={{
-                                    width: 24,
-                                    height: 24,
-                                    borderRadius: 4,
-                                    background: error ? '#fdecea' : '#EEF3FC',
-                                    border: `1px solid ${error ? '#E44F20' : '#1773EB'}`,
-                                    cursor: 'pointer',
-                                    fontSize: 12,
-                                    color: error ? '#E44F20' : '#1773EB',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    padding: 0,
-                                  }}
+                            {translating[`${row.id}-${l}`]
+                              ? <Spinner size="small" />
+                              : <CoverageCell covered={row.locales[l]} />
+                            }
+                          </td>
+                        ))}
+                        {translationActionId && (
+                          <td style={{ padding: '6px 8px' }}>
+                            {missingLocales.length === 0 ? (
+                              <Badge variant="positive">Complete</Badge>
+                            ) : anyTranslating ? (
+                              <Flex gap="spacingXs" alignItems="center">
+                                <Spinner size="small" />
+                                <Text fontSize="fontSizeS" fontColor="gray500">Translating…</Text>
+                              </Flex>
+                            ) : missingLocales.length === 1 ? (
+                              <Flex gap="spacingXs" alignItems="center">
+                                {rowError && (
+                                  <Tooltip content={rowError} placement="top">
+                                    <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>Error</Text>
+                                  </Tooltip>
+                                )}
+                                <Button
+                                  variant="secondary"
+                                  size="small"
+                                  onClick={() => handleTranslate(row.id, missingLocales[0], defaultLocale, row.rawFields)}
                                 >
-                                  {error ? '!' : '✦'}
-                                </button>
-                              </Tooltip>
+                                  Translate → {missingLocales[0]} ✦
+                                </Button>
+                              </Flex>
                             ) : (
-                              <CoverageCell covered={false} />
+                              <Flex gap="spacingXs" alignItems="center" flexWrap="wrap">
+                                {rowError && (
+                                  <Tooltip content={rowError} placement="top">
+                                    <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>Error</Text>
+                                  </Tooltip>
+                                )}
+                                <Menu>
+                                  <Menu.Trigger>
+                                    <Button variant="secondary" size="small">
+                                      Translate ({missingLocales.length}) ✦
+                                    </Button>
+                                  </Menu.Trigger>
+                                  <Menu.List>
+                                    {missingLocales.map((l) => (
+                                      <Menu.Item key={l} onClick={() => handleTranslate(row.id, l, defaultLocale, row.rawFields)}>
+                                        → {l}
+                                      </Menu.Item>
+                                    ))}
+                                    <Menu.Divider />
+                                    <Menu.Item onClick={() => missingLocales.forEach((l) => handleTranslate(row.id, l, defaultLocale, row.rawFields))}>
+                                      Translate all missing
+                                    </Menu.Item>
+                                  </Menu.List>
+                                </Menu>
+                              </Flex>
                             )}
                           </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                        )}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
 
-          {translationActionId && entries.some((e) => Object.values(e.locales).some((v) => !v)) && (
+          {translationActionId && entries.some((e) => locales.some((l) => l !== defaultLocale && !e.locales[l])) && (
             <Note variant="neutral">
               <Text fontSize="fontSizeS">
-                <strong>✦</strong> = missing translation. Click to translate that locale using your configured AI Action.
-                Changes are saved as drafts — review before publishing.
+                Translate buttons save changes as drafts — review and publish when ready.
               </Text>
             </Note>
           )}
