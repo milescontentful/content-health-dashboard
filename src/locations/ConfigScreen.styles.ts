@@ -3,9 +3,10 @@ import { CSSProperties } from 'react';
 
 export const styles = {
   container: {
-    margin: 'auto',
+    marginLeft: 0,
+    marginRight: 'auto',
     padding: tokens.spacingL,
-    maxWidth: '900px',
+    maxWidth: '960px',
   } as CSSProperties,
 
   setupColumn: {

@@ -122,8 +122,8 @@ function PageShell({ params }: { params: AppInstallationParameters }) {
             <TabBar modules={enabledModules} activeId={activeId} onSelect={setActiveId} />
           </header>
 
-          {/* Active module */}
-          <main style={{ padding: '24px' }}>
+          {/* Active module — white background prevents bg-image bleed */}
+          <main style={{ padding: '24px 32px', background: 'rgba(255,255,255,0.97)', minHeight: 'calc(100vh - 100px)' }}>
             {ActiveModule ? (
               <ActiveModule.component installationParams={params} />
             ) : (

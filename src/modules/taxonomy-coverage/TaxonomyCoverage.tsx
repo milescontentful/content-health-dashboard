@@ -66,7 +66,7 @@ export function TaxonomyCoverage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) return <Flex justifyContent="center" paddingTop="spacingXl"><Spinner /></Flex>;
+  if (isLoading) return <Flex paddingTop="spacingXl"><Spinner /></Flex>;
   if (!rows) return <Note variant="negative">Could not load taxonomy data.</Note>;
 
   if (rows.length === 0) {

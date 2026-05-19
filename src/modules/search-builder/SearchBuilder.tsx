@@ -167,7 +167,7 @@ export function SearchBuilder() {
       {/* Results */}
       {activeQuery && (
         <>
-          {isFetching && <Flex justifyContent="center"><Spinner /></Flex>}
+          {isFetching && <Flex><Spinner /></Flex>}
 
           {!isFetching && entries.length === 0 && (
             <Note variant="neutral">No entries match your query.</Note>

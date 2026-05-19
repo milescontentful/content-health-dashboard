@@ -14,16 +14,16 @@ import {
   Tabs,
   Stack,
 } from '@contentful/f36-components';
+import { CheckCircleIcon, XIcon } from '@contentful/f36-icons';
+import { scoreSEO, scoreAEO, scoreGEO, type ScoreResult } from './scorer';
 
 function SimpleProgress({ value }: { value: number }) {
   return (
-    <div style={{ height: 6, background: '#e5e9ed', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
+    <div style={{ height: 6, background: '#e5e9ed', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
       <div style={{ width: `${Math.min(100, value)}%`, height: '100%', background: value >= 75 ? '#00C459' : value >= 50 ? '#F0AB00' : '#E44F20', borderRadius: 3 }} />
     </div>
   );
 }
-import { CheckCircleIcon, XIcon } from '@contentful/f36-icons';
-import { scoreSEO, scoreAEO, scoreGEO, type ScoreResult } from './scorer';
 
 interface AuditRow {
   id: string;
@@ -41,11 +41,11 @@ function ScoreBadge({ score }: { score: number }) {
 
 function ScoreCard({ label, result, color }: { label: string; result: ScoreResult; color: string }) {
   return (
-    <Card padding="default" style={{ flex: 1 }}>
-      <Flex justifyContent="space-between" alignItems="center" marginBottom="spacingS">
+    <Card padding="default" style={{ flex: 1, minWidth: 260 }}>
+      <Flex justifyContent="space-between" alignItems="center" marginBottom="spacingXs">
         <Text fontWeight="fontWeightDemiBold">{label}</Text>
         <Text fontSize="fontSizeXl" fontWeight="fontWeightDemiBold" style={{ color }}>
-          {result.score}
+          {result.score}<Text as="span" fontColor="gray500" fontSize="fontSizeS">/100</Text>
         </Text>
       </Flex>
       <SimpleProgress value={result.score} />
@@ -66,6 +66,95 @@ function ScoreCard({ label, result, color }: { label: string; result: ScoreResul
     </Card>
   );
 }
+
+// ─── Scoring rubric legend ────────────────────────────────────────────────────
+
+const RUBRIC = [
+  {
+    label: 'SEO',
+    color: '#1773EB',
+    checks: [
+      'Title field present',
+      'Title 40–65 characters',
+      'Meta/SEO description field present',
+      'Description 120–160 characters',
+      'Slug or URL path field present',
+      'Content body ≥ 300 characters',
+      'Content has ≥ 4 sentences',
+    ],
+  },
+  {
+    label: 'AEO',
+    color: '#8B2EEA',
+    checks: [
+      'Question-style phrases (who/what/when/where/why/how)',
+      'Substantive opening statement (≥ 60 chars)',
+      'Numbered or bullet list detected',
+      'Definitional language ("X is a…", "defined as…")',
+      'FAQ section or FAQ-style content',
+      'Content ≥ 500 characters',
+    ],
+  },
+  {
+    label: 'GEO',
+    color: '#00897B',
+    checks: [
+      'Brand or organisation field present',
+      'Structured data terminology (schema, JSON-LD, OG…)',
+      'Conversational tone ("you", "your")',
+      'Citable statistics (numbers + % or magnitude)',
+      'Clear subject established in first 100 characters',
+      'Recent year reference (2024–2030)',
+      'Authoritative length ≥ 800 characters',
+    ],
+  },
+];
+
+function ScoringRubric() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1773EB', fontSize: 13, padding: 0, marginBottom: 8 }}
+      >
+        {open ? '▲ Hide' : '▼ How scores are calculated'}
+      </button>
+      {open && (
+        <Card padding="default" style={{ marginBottom: 16 }}>
+          <Text fontWeight="fontWeightDemiBold" marginBottom="spacingS" as="p">Scoring rubric — each check = equal weight</Text>
+          <Flex gap="spacingL" flexWrap="wrap" alignItems="flex-start">
+            {RUBRIC.map((r) => (
+              <Flex key={r.label} flexDirection="column" gap="spacingXs" style={{ minWidth: 220 }}>
+                <Text fontWeight="fontWeightDemiBold" style={{ color: r.color }}>{r.label} — {r.checks.length} checks</Text>
+                {r.checks.map((c, i) => (
+                  <Text key={i} fontSize="fontSizeS" fontColor="gray700">• {c}</Text>
+                ))}
+              </Flex>
+            ))}
+            <Flex flexDirection="column" gap="spacingXs" style={{ minWidth: 160 }}>
+              <Text fontWeight="fontWeightDemiBold">Score bands</Text>
+              <Flex gap="spacingXs" alignItems="center">
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: '#00C459' }} />
+                <Text fontSize="fontSizeS">75–100 — Strong</Text>
+              </Flex>
+              <Flex gap="spacingXs" alignItems="center">
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: '#F0AB00' }} />
+                <Text fontSize="fontSizeS">50–74 — Needs improvement</Text>
+              </Flex>
+              <Flex gap="spacingXs" alignItems="center">
+                <div style={{ width: 12, height: 12, borderRadius: 3, background: '#E44F20' }} />
+                <Text fontSize="fontSizeS">0–49 — Poor</Text>
+              </Flex>
+            </Flex>
+          </Flex>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function SeoAeoGeoAudit() {
   const sdk = useSDK();
@@ -116,14 +205,20 @@ export function SeoAeoGeoAudit() {
 
   return (
     <Flex flexDirection="column" gap="spacingM">
-      <Flex justifyContent="space-between" alignItems="flex-end">
+      {/* Header row */}
+      <Flex justifyContent="space-between" alignItems="flex-end" flexWrap="wrap" gap="spacingM">
         <Flex flexDirection="column">
           <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">SEO / AEO / GEO Audit</Text>
-          <Text fontColor="gray600">Score entries across classic SEO, Answer Engine, and Generative Engine signals.</Text>
+          <Text fontColor="gray600" fontSize="fontSizeS">
+            Score published entries across classic SEO, Answer Engine, and Generative Engine signals.
+          </Text>
         </Flex>
         <FormControl style={{ marginBottom: 0, minWidth: 220 }}>
           <FormControl.Label>Content type</FormControl.Label>
-          <Select value={contentTypeId} onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}>
+          <Select
+            value={contentTypeId}
+            onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
+          >
             <Select.Option value="">Select a content type…</Select.Option>
             {ctData?.map((ct) => (
               <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
@@ -132,60 +227,75 @@ export function SeoAeoGeoAudit() {
         </FormControl>
       </Flex>
 
-      {!contentTypeId && <Note variant="neutral">Select a content type to run the audit.</Note>}
-      {contentTypeId && isLoading && <Flex justifyContent="center" paddingTop="spacingXl"><Spinner /></Flex>}
+      <ScoringRubric />
+
+      {!contentTypeId && <Note variant="neutral">Select a content type above to run the audit.</Note>}
+      {contentTypeId && isLoading && <Flex paddingTop="spacingXl"><Spinner /></Flex>}
 
       {auditRows && !isLoading && (
-        <Tabs defaultTab="table">
+        <Tabs defaultTab={selectedEntry ? 'detail' : 'table'}>
           <Tabs.List>
             <Tabs.Tab panelId="table">Entry list</Tabs.Tab>
-            {selectedEntry && <Tabs.Tab panelId="detail">Entry detail</Tabs.Tab>}
+            {selectedEntry && <Tabs.Tab panelId="detail">↳ {selectedEntry.title.slice(0, 30)}{selectedEntry.title.length > 30 ? '…' : ''}</Tabs.Tab>}
           </Tabs.List>
 
           <Tabs.Panel id="table">
             {auditRows.length === 0 ? (
               <Note variant="neutral">No published entries for this content type.</Note>
             ) : (
-              <Table>
-                <Table.Head>
-                  <Table.Row>
-                    <Table.Cell>Entry</Table.Cell>
-                    <Table.Cell>SEO</Table.Cell>
-                    <Table.Cell>AEO</Table.Cell>
-                    <Table.Cell>GEO</Table.Cell>
-                    <Table.Cell>Composite</Table.Cell>
-                  </Table.Row>
-                </Table.Head>
-                <Table.Body>
-                  {auditRows
-                    .sort((a, b) => b.composite - a.composite)
-                    .map((row) => (
-                      <Table.Row
-                        key={row.id}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedEntryId(row.id)}
-                      >
-                        <Table.Cell>
-                          <Text style={{ color: '#1773EB', textDecoration: 'underline' }}>
-                            {row.title}
-                          </Text>
-                        </Table.Cell>
-                        <Table.Cell><ScoreBadge score={row.seo.score} /></Table.Cell>
-                        <Table.Cell><ScoreBadge score={row.aeo.score} /></Table.Cell>
-                        <Table.Cell><ScoreBadge score={row.geo.score} /></Table.Cell>
-                        <Table.Cell><ScoreBadge score={row.composite} /></Table.Cell>
-                      </Table.Row>
-                    ))}
-                </Table.Body>
-              </Table>
+              <>
+                <Text fontColor="gray500" fontSize="fontSizeS" marginBottom="spacingS" as="p">
+                  Click an entry to see its full scorecard breakdown. Showing up to 50 published entries, sorted by composite score.
+                </Text>
+                <Table>
+                  <Table.Head>
+                    <Table.Row>
+                      <Table.Cell>Entry</Table.Cell>
+                      <Table.Cell>SEO</Table.Cell>
+                      <Table.Cell>AEO</Table.Cell>
+                      <Table.Cell>GEO</Table.Cell>
+                      <Table.Cell>Composite</Table.Cell>
+                    </Table.Row>
+                  </Table.Head>
+                  <Table.Body>
+                    {[...auditRows]
+                      .sort((a, b) => b.composite - a.composite)
+                      .map((row) => (
+                        <Table.Row
+                          key={row.id}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedEntryId(row.id)}
+                        >
+                          <Table.Cell>
+                            <Text style={{ color: '#1773EB', textDecoration: 'underline' }}>
+                              {row.title}
+                            </Text>
+                          </Table.Cell>
+                          <Table.Cell><ScoreBadge score={row.seo.score} /></Table.Cell>
+                          <Table.Cell><ScoreBadge score={row.aeo.score} /></Table.Cell>
+                          <Table.Cell><ScoreBadge score={row.geo.score} /></Table.Cell>
+                          <Table.Cell><ScoreBadge score={row.composite} /></Table.Cell>
+                        </Table.Row>
+                      ))}
+                  </Table.Body>
+                </Table>
+              </>
             )}
           </Tabs.Panel>
 
           {selectedEntry && (
             <Tabs.Panel id="detail">
               <Flex flexDirection="column" gap="spacingM">
-                <Text fontWeight="fontWeightDemiBold">{selectedEntry.title}</Text>
-                <Flex gap="spacingM" flexWrap="wrap">
+                <Flex justifyContent="space-between" alignItems="center">
+                  <Text fontWeight="fontWeightDemiBold">{selectedEntry.title}</Text>
+                  <Text
+                    style={{ cursor: 'pointer', color: '#1773EB', fontSize: 13 }}
+                    onClick={() => setSelectedEntryId(null)}
+                  >
+                    ← Back to list
+                  </Text>
+                </Flex>
+                <Flex gap="spacingM" flexWrap="wrap" alignItems="flex-start">
                   <ScoreCard label="SEO" result={selectedEntry.seo} color="#1773EB" />
                   <ScoreCard label="AEO" result={selectedEntry.aeo} color="#8B2EEA" />
                   <ScoreCard label="GEO" result={selectedEntry.geo} color="#00897B" />

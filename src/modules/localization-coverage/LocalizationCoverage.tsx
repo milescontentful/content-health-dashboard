@@ -95,11 +95,7 @@ export function LocalizationCoverage() {
   });
 
   if (metaLoading) {
-    return (
-      <Flex justifyContent="center" paddingTop="spacingXl">
-        <Spinner />
-      </Flex>
-    );
+    return <Flex paddingTop="spacingXl"><Spinner /></Flex>;
   }
 
   if (!meta) {
@@ -144,7 +140,7 @@ export function LocalizationCoverage() {
       )}
 
       {selectedCtId && entriesLoading && (
-        <Flex justifyContent="center" paddingTop="spacingXl"><Spinner /></Flex>
+        <Flex paddingTop="spacingXl"><Spinner /></Flex>
       )}
 
       {selectedCtId && !entriesLoading && entries && (
