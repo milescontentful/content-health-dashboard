@@ -145,25 +145,26 @@ export function LocalizationCoverage() {
 
       {selectedCtId && !entriesLoading && entries && (
         <>
-          {/* Summary row */}
-          <Flex gap="spacingS" flexWrap="wrap">
-            {locales.map((locale) => {
-              const pct = coveragePct(entries, locale);
-              return (
-                <Card key={locale} padding="default" style={{ minWidth: 100, textAlign: 'center' }}>
-                  <Text fontWeight="fontWeightDemiBold">{locale}</Text>
-                  <Text
-                    as="p"
-                    fontColor={pct === 100 ? 'green600' : pct >= 50 ? 'yellow700' : 'red600'}
-                    fontWeight="fontWeightDemiBold"
-                    fontSize="fontSizeXl"
-                  >
-                    {pct}%
-                  </Text>
-                </Card>
-              );
-            })}
-          </Flex>
+          {/* Summary strip — compact pills, never full-width */}
+          <Card padding="default">
+            <Flex gap="spacingXl" flexWrap="wrap" alignItems="flex-start">
+              {locales.map((locale) => {
+                const pct = coveragePct(entries, locale);
+                const color = pct === 100 ? '#00C459' : pct >= 50 ? '#F0AB00' : '#E44F20';
+                return (
+                  <Flex key={locale} flexDirection="column" gap="spacingXs" style={{ minWidth: 80 }}>
+                    <Text fontColor="gray500" fontSize="fontSizeS">{locale}</Text>
+                    <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeXl" style={{ color }}>
+                      {pct}%
+                    </Text>
+                    <div style={{ height: 4, width: 64, background: '#e5e9ed', borderRadius: 2 }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2 }} />
+                    </div>
+                  </Flex>
+                );
+              })}
+            </Flex>
+          </Card>
 
           {/* Heatmap table */}
           {entries.length === 0 ? (

@@ -102,9 +102,9 @@ export function SearchBuilder() {
       <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Content Search</Text>
 
       <Card padding="default">
-        <Stack flexDirection="column" spacing="spacingM">
-          <Flex gap="spacingM" alignItems="flex-end" flexWrap="wrap">
-            <FormControl style={{ flex: 1, marginBottom: 0 }}>
+        <Stack flexDirection="column" spacing="spacingM" style={{ width: '100%' }}>
+          <Flex gap="spacingM" alignItems="flex-end" flexWrap="wrap" style={{ width: '100%' }}>
+            <FormControl style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
               <FormControl.Label>Free text</FormControl.Label>
               <TextInput
                 value={freeText}
