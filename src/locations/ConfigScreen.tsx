@@ -325,8 +325,9 @@ const ConfigScreen = () => {
   const sdk = useSDK<ConfigAppSDK>();
   const [parameters, setParameters] = useState<AppInstallationParameters>({});
   const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>([]);
+  const [selectedTopLevelCTs, setSelectedTopLevelCTs] = useState<ContentType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'p13n' | 'contentful-analytics'>('analytics');
+  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'p13n' | 'contentful-analytics' | 'reference-risk'>('analytics');
 
   // Module configs derived from params
   const moduleConfigs = getModuleConfigs(parameters);
@@ -385,6 +386,7 @@ const ConfigScreen = () => {
       parameters: {
         ...parameters,
         defaultContentTypes: selectedContentTypes.map((ct) => ct.id),
+        topLevelContentTypes: selectedTopLevelCTs.map((ct) => ct.id),
       },
       targetState: currentState,
     };
@@ -420,6 +422,7 @@ const ConfigScreen = () => {
     { id: 'ai', label: 'AI Audit' },
     { id: 'p13n', label: 'Personalization' },
     { id: 'contentful-analytics', label: 'Contentful Analytics' },
+    { id: 'reference-risk', label: 'Reference Risk' },
   ] as const;
 
   return (
@@ -649,6 +652,48 @@ const ConfigScreen = () => {
               />
               <FormControl.HelpText>
                 Will be available in your Contentful organization settings when Analytics launches.
+              </FormControl.HelpText>
+            </FormControl>
+          </Flex>
+        )}
+
+        {/* ── Reference Risk ── */}
+        {activeSection === 'reference-risk' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">Reference Risk — top-level content types</Heading>
+            <Text fontColor="gray600" marginBottom="spacingS">
+              Top-level content types (landing pages, blog posts, product pages, etc.) are intentional entry-points
+              in your content model — they are not referenced by other entries by design.
+              Mark them here so the Reference Risk module excludes them from the{' '}
+              <strong>Orphaned entries</strong> list, keeping that list focused on truly unused content.
+            </Text>
+            <Note variant="neutral">
+              <Text fontSize="fontSizeS">
+                You can find your top-level types in the{' '}
+                <a
+                  href={`https://app.contentful.com/spaces/${sdk.ids.space}/environments/${sdk.ids.environment}/visual_modeler/content_types`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#1773EB' }}
+                >
+                  Visual Content Modeler →
+                </a>{' '}
+                — look for types that appear at the root of your model with no inbound arrows (e.g. Page, Landing Page, Blog Post).
+              </Text>
+            </Note>
+            <FormControl>
+              <FormControl.Label>
+                Top-level content types <Badge variant="secondary">Optional</Badge>
+              </FormControl.Label>
+              <ContentTypeMultiSelect
+                selectedContentTypes={selectedTopLevelCTs}
+                setSelectedContentTypes={setSelectedTopLevelCTs}
+                sdk={sdk}
+                initialSelectedIds={parameters.topLevelContentTypes}
+              />
+              <FormControl.HelpText>
+                Entries of these types will be excluded from the Orphaned entries tab in Reference Risk.
+                Broken references and high-risk entries are unaffected.
               </FormControl.HelpText>
             </FormControl>
           </Flex>

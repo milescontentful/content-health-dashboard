@@ -84,6 +84,9 @@ export interface AppInstallationParameters {
 
   // Contentful Analytics
   analyticsApiKey?: string;
+
+  // Reference Risk — content types treated as intentional entry-points (not flagged as orphaned)
+  topLevelContentTypes?: string[];
 }
 
 export interface SavedSearch {

@@ -16,6 +16,7 @@ import {
 import { DownloadSimpleIcon, WarningIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
+import type { ModuleProps } from '../types';
 
 interface EntryRef {
   entryId: string;
@@ -172,9 +173,10 @@ async function analyseReferences(sdk: ReturnType<typeof useSDK>) {
   return { brokenRefs, orphanedEntries, highRisk, totalEntries: allEntries.length };
 }
 
-export function ReferenceRisk() {
+export function ReferenceRisk({ installationParams }: ModuleProps) {
   const sdk = useSDK();
   const [activeTab, setActiveTab] = useState('broken');
+  const topLevelCTs = new Set<string>(installationParams.topLevelContentTypes ?? []);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['reference-risk'],
@@ -256,13 +258,20 @@ export function ReferenceRisk() {
             </Flex>
           </Card>
 
+          {(() => {
+            const filteredOrphans = topLevelCTs.size > 0
+              ? data.orphanedEntries.filter((e) => !topLevelCTs.has(e.contentType))
+              : data.orphanedEntries;
+            const excludedCount = data.orphanedEntries.length - filteredOrphans.length;
+
+            return (
           <Tabs currentTab={activeTab} onTabChange={setActiveTab}>
             <Tabs.List>
               <Tabs.Tab panelId="broken">
                 Broken refs ({data.brokenRefs.length})
               </Tabs.Tab>
               <Tabs.Tab panelId="orphans">
-                Orphaned entries ({data.orphanedEntries.length})
+                Orphaned ({filteredOrphans.length}{excludedCount > 0 ? ` + ${excludedCount} top-level` : ''})
               </Tabs.Tab>
               <Tabs.Tab panelId="high-risk">
                 High-risk ({data.highRisk.length})
@@ -333,16 +342,33 @@ export function ReferenceRisk() {
             <Tabs.Panel id="orphans">
               <Flex justifyContent="space-between" alignItems="center" marginBottom="spacingS">
                 <Text fontSize="fontSizeS" fontColor="gray600">
-                  Entries not referenced by any other entry. May be stand-alone pages or unused content.
+                  Entries not referenced by any other entry. Likely unused component content.
                 </Text>
-                {data.orphanedEntries.length > 0 && (
+                {filteredOrphans.length > 0 && (
                   <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={handleExportOrphans}>
                     Export CSV
                   </Button>
                 )}
               </Flex>
-              {data.orphanedEntries.length === 0 ? (
+
+              {excludedCount > 0 && (
+                <Note variant="neutral" style={{ marginBottom: 12 }}>
+                  <Text fontSize="fontSizeS">
+                    <strong>{excludedCount}</strong> entr{excludedCount === 1 ? 'y' : 'ies'} hidden — their content type is marked as a top-level type in Config Screen and is expected to have no inbound references.
+                    {' '}<button
+                      onClick={() => setActiveTab('broken')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1773EB', fontSize: 'inherit', padding: 0 }}
+                    >
+                      Configure in Config Screen → Reference Risk →
+                    </button>
+                  </Text>
+                </Note>
+              )}
+
+              {filteredOrphans.length === 0 && excludedCount === 0 ? (
                 <Note variant="positive">All entries are referenced by at least one other entry.</Note>
+              ) : filteredOrphans.length === 0 ? (
+                <Note variant="positive">All unreferenced entries are top-level types — no unexpected orphans found.</Note>
               ) : (
                 <Table>
                   <Table.Head>
@@ -354,7 +380,7 @@ export function ReferenceRisk() {
                     </Table.Row>
                   </Table.Head>
                   <Table.Body>
-                    {data.orphanedEntries.slice(0, 100).map((entry) => (
+                    {filteredOrphans.slice(0, 100).map((entry) => (
                       <Table.Row key={entry.id}>
                         <Table.Cell>
                           <TextLink
@@ -380,9 +406,9 @@ export function ReferenceRisk() {
                   </Table.Body>
                 </Table>
               )}
-              {data.orphanedEntries.length > 100 && (
+              {filteredOrphans.length > 100 && (
                 <Note variant="neutral" style={{ marginTop: 8 }}>
-                  Showing first 100. Export CSV to see all {data.orphanedEntries.length}.
+                  Showing first 100. Export CSV to see all {filteredOrphans.length}.
                 </Note>
               )}
             </Tabs.Panel>
@@ -440,6 +466,8 @@ export function ReferenceRisk() {
               )}
             </Tabs.Panel>
           </Tabs>
+            );
+          })()}
         </>
       )}
     </Flex>
