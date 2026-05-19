@@ -593,15 +593,22 @@ const ConfigScreen = () => {
               The action receives source locale field values and returns translated text for each field.
             </Text>
             <FormControl>
-              <FormControl.Label>Translation — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <FormControl.Label>Translation — AI Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
               <TextInput
                 value={parameters.translationActionId ?? ''}
-                onChange={(e) => setParameters((p) => ({ ...p, translationActionId: e.target.value }))}
-                placeholder="translate-entry"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const match = raw.match(/\/ai_actions\/([^/?#\s]+)/);
+                  setParameters((p) => ({ ...p, translationActionId: match ? match[1] : raw }));
+                }}
+                placeholder="5HAn6AVCxsbxddb5ahQpKs  (or paste the full URL)"
               />
               <FormControl.HelpText>
-                Accepts <code>{'{ entryId, sourceLocale, targetLocale, fields: { [id]: string } }'}</code> · Returns <code>{'{ [fieldId]: string }'}</code>
+                Paste the action ID or its full <code>app.contentful.com</code> URL — the ID will be extracted automatically.
               </FormControl.HelpText>
+              {parameters.translationActionId && (
+                <Text fontSize="fontSizeS" fontColor="gray600">Using action ID: <code>{parameters.translationActionId}</code></Text>
+              )}
             </FormControl>
 
             <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '8px 0' }} />
@@ -611,15 +618,22 @@ const ConfigScreen = () => {
               The action analyses the image URL and returns a descriptive alt text string.
             </Text>
             <FormControl>
-              <FormControl.Label>Alt Text — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <FormControl.Label>Alt Text — AI Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
               <TextInput
                 value={parameters.altTextActionId ?? ''}
-                onChange={(e) => setParameters((p) => ({ ...p, altTextActionId: e.target.value }))}
-                placeholder="generate-alt-text"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const match = raw.match(/\/ai_actions\/([^/?#\s]+)/);
+                  setParameters((p) => ({ ...p, altTextActionId: match ? match[1] : raw }));
+                }}
+                placeholder="4LbT2NLhRnGixGSbuDuL1n  (or paste the full URL)"
               />
               <FormControl.HelpText>
-                Accepts <code>{'{ assetId, imageUrl, locale }'}</code> · Returns <code>{'{ altText: string }'}</code>
+                Paste the action ID or its full <code>app.contentful.com</code> URL — the ID will be extracted automatically.
               </FormControl.HelpText>
+              {parameters.altTextActionId && (
+                <Text fontSize="fontSizeS" fontColor="gray600">Using action ID: <code>{parameters.altTextActionId}</code></Text>
+              )}
             </FormControl>
           </Flex>
         )}

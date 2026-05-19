@@ -14,6 +14,7 @@ import {
   Button,
 } from '@contentful/f36-components';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
+import { extractAiActionId, invokeAiAction } from '../../lib/aiActions';
 import type { ModuleProps } from '../types';
 
 interface LocaleField {
@@ -91,8 +92,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
   const [translating, setTranslating] = useState<Record<string, boolean>>({});
   const [translateErrors, setTranslateErrors] = useState<Record<string, string>>({});
 
-  const translationActionId = installationParams.translationActionId ?? '';
-  const appId: string = (sdk as any).ids?.app ?? '';
+  const translationActionId = extractAiActionId(installationParams.translationActionId ?? '');
   const spaceId: string = (sdk as any).ids?.space ?? '';
   const environmentId: string = (sdk as any).ids?.environment ?? 'master';
 
@@ -131,13 +131,21 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
         }
       }
 
-      // Call the translation AI action
-      const res = await (sdk.cma as any).appActionCall.createWithResponse(
-        { appActionId: translationActionId, appDefinitionId: appId },
-        { parameters: { entryId, sourceLocale, targetLocale, fields: sourceFields } },
+      // Call the Contentful AI Action via the /ai_actions/{id}/invocations endpoint
+      const res = await invokeAiAction(
+        sdk.cma,
+        spaceId,
+        environmentId,
+        translationActionId,
+        { entryId, sourceLocale, targetLocale, fields: sourceFields },
       );
 
-      const translated: Record<string, string> = res?.response?.body ?? res?.body ?? {};
+      // Accept the translated fields from any reasonable response shape
+      const translated: Record<string, string> =
+        (res as any)?.fields ??
+        (res as any)?.translatedFields ??
+        (res as any)?.result?.fields ??
+        {};
 
       if (!Object.keys(translated).length) {
         throw new Error('AI action returned no translated fields.');
@@ -161,7 +169,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
     } finally {
       setTranslating((t) => { const n = { ...t }; delete n[key]; return n; });
     }
-  }, [sdk, translationActionId, appId, selectedCtId, queryClient]);
+  }, [sdk, translationActionId, spaceId, environmentId, selectedCtId, queryClient]);
 
   if (metaLoading) {
     return (

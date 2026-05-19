@@ -15,6 +15,7 @@ import {
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openAssetInNewTab } from '../../lib/openInNewTab';
+import { extractAiActionId, invokeAiAction } from '../../lib/aiActions';
 import type { ModuleProps } from '../types';
 
 interface AssetRow {
@@ -88,8 +89,9 @@ export function AssetHealth({ installationParams }: ModuleProps) {
   const [generatingAlt, setGeneratingAlt] = useState<Record<string, boolean>>({});
   const [altErrors, setAltErrors] = useState<Record<string, string>>({});
 
-  const altTextActionId = installationParams.altTextActionId ?? '';
-  const appId: string = (sdk as any).ids?.app ?? '';
+  const altTextActionId = extractAiActionId(installationParams.altTextActionId ?? '');
+  const spaceId: string = (sdk as any).ids?.space ?? '';
+  const environmentId: string = (sdk as any).ids?.environment ?? 'master';
 
   const { data: assets, isLoading, refetch } = useQuery({
     queryKey: ['asset-health'],
@@ -102,12 +104,19 @@ export function AssetHealth({ installationParams }: ModuleProps) {
     setAltErrors((e) => { const n = { ...e }; delete n[asset.id]; return n; });
 
     try {
-      const res = await (sdk.cma as any).appActionCall.createWithResponse(
-        { appActionId: altTextActionId, appDefinitionId: appId },
-        { parameters: { assetId: asset.id, imageUrl: asset.url, locale: (sdk as any).ids?.environment ? 'en-US' : 'en-US' } },
+      const res = await invokeAiAction(
+        sdk.cma,
+        spaceId,
+        environmentId,
+        altTextActionId,
+        { assetId: asset.id, imageUrl: asset.url },
       );
 
-      const altText: string = res?.response?.body?.altText ?? res?.body?.altText ?? '';
+      const altText: string =
+        (res as any)?.altText ??
+        (res as any)?.result?.altText ??
+        (res as any)?.output ??
+        '';
       if (!altText) throw new Error('AI action returned no alt text.');
 
       // Write alt text back to asset description field
@@ -125,7 +134,7 @@ export function AssetHealth({ installationParams }: ModuleProps) {
     } finally {
       setGeneratingAlt((g) => { const n = { ...g }; delete n[asset.id]; return n; });
     }
-  }, [sdk, altTextActionId, appId, queryClient]);
+  }, [sdk, altTextActionId, spaceId, environmentId, queryClient]);
 
   if (isLoading) {
     return (
