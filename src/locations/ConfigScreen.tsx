@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { ConfigAppSDK } from '@contentful/app-sdk';
 import {
   Heading,
@@ -53,24 +53,27 @@ function SortableModuleRow({
   onToggle: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.id });
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: 'relative',
+    width: '100%',
   };
 
   return (
     <div ref={setNodeRef} style={style}>
-      <Card padding="default">
+      <Card padding="default" style={{ width: '100%', boxSizing: 'border-box' }}>
         <Flex alignItems="center" gap="spacingS">
           <span
             {...attributes}
             {...listeners}
-            style={{ cursor: 'grab', color: '#8c9bab', display: 'flex', alignItems: 'center' }}
+            style={{ cursor: isDragging ? 'grabbing' : 'grab', color: '#8c9bab', display: 'flex', alignItems: 'center', flexShrink: 0 }}
           >
             <DotsSixVerticalIcon />
           </span>
-          <Flex flexDirection="column" style={{ flex: 1 }}>
+          <Flex flexDirection="column" style={{ flex: 1, minWidth: 0 }}>
             <Text fontWeight="fontWeightDemiBold">{mod.label}</Text>
             <Text fontColor="gray500" fontSize="fontSizeS">
               {mod.description}
@@ -514,7 +517,7 @@ const ConfigScreen = () => {
             </Text>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleModuleDragEnd}>
               <SortableContext items={orderedModules.map((m) => m.id)} strategy={verticalListSortingStrategy}>
-                <Stack flexDirection="column" spacing="spacingXs">
+                <Stack flexDirection="column" spacing="spacingXs" style={{ width: '100%' }}>
                   {orderedModules.map((mod) => (
                     <SortableModuleRow key={mod.id} mod={mod} onToggle={handleModuleToggle} />
                   ))}
