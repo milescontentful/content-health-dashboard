@@ -8,9 +8,12 @@ import {
   Note,
   Select,
   FormControl,
+  Badge,
   Card,
   Tooltip,
+  Button,
 } from '@contentful/f36-components';
+import type { ModuleProps } from '../types';
 
 interface LocaleField {
   [locale: string]: unknown;
@@ -79,11 +82,11 @@ function CoverageCell({ covered }: { covered: boolean }) {
   );
 }
 
-export function LocalizationCoverage() {
+export function LocalizationCoverage(_props: ModuleProps) {
   const sdk = useSDK();
   const [selectedCtId, setSelectedCtId] = useState<string>('');
 
-  const { data: meta, isLoading: metaLoading } = useQuery({
+  const { data: meta, isLoading: metaLoading, refetch } = useQuery({
     queryKey: ['localization-meta'],
     queryFn: () => fetchLocalizationData(sdk),
   });
@@ -95,7 +98,20 @@ export function LocalizationCoverage() {
   });
 
   if (metaLoading) {
-    return <Flex paddingTop="spacingXl"><Spinner /></Flex>;
+    return (
+      <Flex flexDirection="column" gap="spacingM">
+        <Flex justifyContent="space-between" alignItems="flex-start">
+          <Flex flexDirection="column" gap="spacingXs">
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Localization Coverage</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">Heatmap of entries × locales. Quickly spot missing translations and coverage gaps.</Text>
+          </Flex>
+        </Flex>
+        <Flex gap="spacingS" alignItems="center" paddingTop="spacingL">
+          <Spinner />
+          <Text fontColor="gray500" fontSize="fontSizeS">Loading locale configuration…</Text>
+        </Flex>
+      </Flex>
+    );
   }
 
   if (!meta) {
@@ -111,28 +127,31 @@ export function LocalizationCoverage() {
 
   return (
     <Flex flexDirection="column" gap="spacingM">
-      <Flex justifyContent="space-between" alignItems="flex-end">
-        <Flex flexDirection="column">
+      <Flex justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="spacingM">
+        <Flex flexDirection="column" gap="spacingXs">
           <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Localization Coverage</Text>
-          <Text fontColor="gray600">
-            {locales.length} locale{locales.length !== 1 ? 's' : ''} detected
+          <Text fontColor="gray600" fontSize="fontSizeS">
+            Heatmap of entries × locales. {locales.length} locale{locales.length !== 1 ? 's' : ''} detected in this space.
           </Text>
         </Flex>
-        <FormControl style={{ marginBottom: 0 }}>
-          <FormControl.Label>Content type</FormControl.Label>
-          <Select
-            value={selectedCtId}
-            onChange={(e) => setSelectedCtId(e.target.value)}
-            style={{ minWidth: 220 }}
-          >
-            <Select.Option value="">Select a content type…</Select.Option>
-            {contentTypes.map((ct) => (
-              <Select.Option key={ct.sys.id} value={ct.sys.id}>
-                {ct.name}
-              </Select.Option>
-            ))}
-          </Select>
-        </FormControl>
+        <Flex gap="spacingS" alignItems="flex-end">
+          <FormControl style={{ marginBottom: 0 }}>
+            <FormControl.Label>Content type</FormControl.Label>
+            <Select
+              value={selectedCtId}
+              onChange={(e) => setSelectedCtId(e.target.value)}
+              style={{ minWidth: 220 }}
+            >
+              <Select.Option value="">Select a content type…</Select.Option>
+              {contentTypes.map((ct) => (
+                <Select.Option key={ct.sys.id} value={ct.sys.id}>
+                  {ct.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </FormControl>
+          <Button variant="secondary" size="small" onClick={() => { setSelectedCtId(''); refetch(); }}>Refresh</Button>
+        </Flex>
       </Flex>
 
       {!selectedCtId && (
@@ -140,7 +159,10 @@ export function LocalizationCoverage() {
       )}
 
       {selectedCtId && entriesLoading && (
-        <Flex paddingTop="spacingXl"><Spinner /></Flex>
+        <Flex gap="spacingS" alignItems="center" paddingTop="spacingL">
+          <Spinner />
+          <Text fontColor="gray500" fontSize="fontSizeS">Loading entries…</Text>
+        </Flex>
       )}
 
       {selectedCtId && !entriesLoading && entries && (

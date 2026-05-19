@@ -74,7 +74,10 @@ export function CustomContent({ installationParams }: ModuleProps) {
 
   return (
     <Flex flexDirection="column" gap="spacingM">
-      <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Custom Content</Text>
+      <Flex flexDirection="column" gap="spacingXs">
+        <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Custom Content</Text>
+        <Text fontColor="gray600" fontSize="fontSizeS">Free-form cards authored in Config Screen. Add talking points, links, or demo notes.</Text>
+      </Flex>
       <div
         style={{
           display: 'grid',

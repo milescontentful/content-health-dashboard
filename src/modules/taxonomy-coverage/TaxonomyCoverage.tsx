@@ -8,7 +8,9 @@ import {
   Table,
   Badge,
   Card,
+  Button,
 } from '@contentful/f36-components';
+import type { ModuleProps } from '../types';
 
 function SimpleProgress({ value }: { value: number }) {
   return (
@@ -57,16 +59,31 @@ async function fetchTaxonomyCoverage(sdk: ReturnType<typeof useSDK>): Promise<Co
   return rows.sort((a, b) => a.pct - b.pct);
 }
 
-export function TaxonomyCoverage() {
+export function TaxonomyCoverage(_props: ModuleProps) {
   const sdk = useSDK();
 
-  const { data: rows, isLoading } = useQuery({
+  const { data: rows, isLoading, refetch } = useQuery({
     queryKey: ['taxonomy-coverage'],
     queryFn: () => fetchTaxonomyCoverage(sdk),
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) return <Flex paddingTop="spacingXl"><Spinner /></Flex>;
+  if (isLoading) {
+    return (
+      <Flex flexDirection="column" gap="spacingM">
+        <Flex justifyContent="space-between" alignItems="flex-start">
+          <Flex flexDirection="column" gap="spacingXs">
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Taxonomy Coverage</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">Concept assignment coverage per content type — pairs with your Taxonomy Viewer app.</Text>
+          </Flex>
+        </Flex>
+        <Flex gap="spacingS" alignItems="center" paddingTop="spacingL">
+          <Spinner />
+          <Text fontColor="gray500" fontSize="fontSizeS">Sampling entries across all content types…</Text>
+        </Flex>
+      </Flex>
+    );
+  }
   if (!rows) return <Note variant="negative">Could not load taxonomy data.</Note>;
 
   if (rows.length === 0) {
@@ -80,26 +97,46 @@ export function TaxonomyCoverage() {
   const overallPct = Math.round(
     rows.reduce((sum, r) => sum + r.pct, 0) / rows.length,
   );
+  const totalTagged = rows.reduce((s, r) => s + r.withConcepts, 0);
+  const totalEntries = rows.reduce((s, r) => s + r.total, 0);
 
   return (
     <Flex flexDirection="column" gap="spacingM">
-      <Flex justifyContent="space-between" alignItems="center">
-        <Flex flexDirection="column">
+      <Flex justifyContent="space-between" alignItems="flex-start">
+        <Flex flexDirection="column" gap="spacingXs">
           <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Taxonomy Coverage</Text>
-          <Text fontColor="gray600">% of entries with at least one concept assigned, per content type.</Text>
+          <Text fontColor="gray600" fontSize="fontSizeS">Concept assignment coverage per content type — pairs with your Taxonomy Viewer app.</Text>
         </Flex>
-        <Card padding="default" style={{ textAlign: 'center', minWidth: 120 }}>
-          <Text fontColor="gray600" fontSize="fontSizeS">Overall</Text>
-          <Text
-            fontSize="fontSizeXl"
-            fontWeight="fontWeightDemiBold"
-            as="p"
-            style={{ color: overallPct >= 75 ? '#00C459' : overallPct >= 50 ? '#F0AB00' : '#E44F20' }}
-          >
-            {overallPct}%
-          </Text>
-        </Card>
+        <Button variant="secondary" size="small" onClick={() => refetch()}>Refresh</Button>
       </Flex>
+
+      {/* Summary strip */}
+      <Card padding="default">
+        <Flex gap="spacingXl" flexWrap="wrap" alignItems="flex-start">
+          <Flex flexDirection="column" gap="spacingXs">
+            <Text fontColor="gray500" fontSize="fontSizeS">Overall coverage</Text>
+            <Text
+              fontWeight="fontWeightDemiBold"
+              fontSize="fontSizeXl"
+              style={{ color: overallPct >= 75 ? '#00C459' : overallPct >= 50 ? '#F0AB00' : '#E44F20' }}
+            >
+              {overallPct}%
+            </Text>
+          </Flex>
+          <Flex flexDirection="column" gap="spacingXs">
+            <Text fontColor="gray500" fontSize="fontSizeS">Content types</Text>
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeXl">{rows.length}</Text>
+          </Flex>
+          <Flex flexDirection="column" gap="spacingXs">
+            <Text fontColor="gray500" fontSize="fontSizeS">Entries tagged</Text>
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeXl">{totalTagged}</Text>
+          </Flex>
+          <Flex flexDirection="column" gap="spacingXs">
+            <Text fontColor="gray500" fontSize="fontSizeS">Entries sampled</Text>
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeXl">{totalEntries}</Text>
+          </Flex>
+        </Flex>
+      </Card>
 
       <Table>
         <Table.Head>

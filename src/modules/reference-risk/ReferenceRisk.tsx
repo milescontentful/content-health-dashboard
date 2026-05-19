@@ -15,7 +15,6 @@ import {
 } from '@contentful/f36-components';
 import { DownloadSimpleIcon, WarningIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
-import { openEntryInNewTab } from '../../lib/openInNewTab';
 
 interface EntryRef {
   entryId: string;
@@ -303,7 +302,7 @@ export function ReferenceRisk() {
                         <Table.Cell>
                           <TextLink
                             as="button"
-                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, ref.entryId)}
+                            onClick={() => (sdk as any).navigator?.openEntry(ref.entryId, { slideIn: true })}
                           >
                             {ref.entryTitle}
                           </TextLink>
@@ -359,7 +358,7 @@ export function ReferenceRisk() {
                         <Table.Cell>
                           <TextLink
                             as="button"
-                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, entry.id)}
+                            onClick={() => (sdk as any).navigator?.openEntry(entry.id, { slideIn: true })}
                           >
                             {entry.title}
                           </TextLink>
@@ -417,7 +416,7 @@ export function ReferenceRisk() {
                         <Table.Cell>
                           <TextLink
                             as="button"
-                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, entry.id)}
+                            onClick={() => (sdk as any).navigator?.openEntry(entry.id, { slideIn: true })}
                           >
                             {entry.title}
                           </TextLink>

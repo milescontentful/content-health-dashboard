@@ -20,8 +20,7 @@ import { PlusIcon, TrashSimpleIcon, MagnifyingGlassIcon, DownloadSimpleIcon } fr
 import { useSearchEntries } from '../../hooks/useSearchEntries';
 import { setFieldMetaCache } from '../../utils/queryBuilder';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
-import type { SearchQuery, SearchCondition } from '../types';
-import { openEntryInNewTab } from '../../lib/openInNewTab';
+import type { ModuleProps, SearchQuery, SearchCondition } from '../types';
 
 const OPERATORS = [
   { value: 'equals', label: 'equals' },
@@ -101,7 +100,10 @@ export function SearchBuilder() {
 
   return (
     <Flex flexDirection="column" gap="spacingM">
-      <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Content Search</Text>
+      <Flex flexDirection="column" gap="spacingXs">
+        <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Content Search</Text>
+        <Text fontColor="gray600" fontSize="fontSizeS">Visual AND/OR/NOT query builder with free-text search and paginated results.</Text>
+      </Flex>
 
       <Card padding="default">
         <Stack flexDirection="column" spacing="spacingM" style={{ width: '100%' }}>
@@ -217,7 +219,7 @@ export function SearchBuilder() {
                           <Text
                             as="span"
                             style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }}
-                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, entry.sys.id)}
+                            onClick={() => (sdk as any).navigator?.openEntry(entry.sys.id, { slideIn: true })}
                           >
                             {title || entry.sys.id}
                           </Text>

@@ -13,7 +13,6 @@ import {
 } from '@contentful/f36-components';
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
-import { openAssetInNewTab } from '../../lib/openInNewTab';
 
 interface AssetRow {
   id: string;
@@ -83,13 +82,28 @@ function MetricPill({ label, value, variant }: { label: string; value: number; v
 export function AssetHealth() {
   const sdk = useSDK();
 
-  const { data: assets, isLoading } = useQuery({
+  const { data: assets, isLoading, refetch } = useQuery({
     queryKey: ['asset-health'],
     queryFn: () => fetchAssets(sdk),
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) return <Flex paddingTop="spacingXl"><Spinner /></Flex>;
+  if (isLoading) {
+    return (
+      <Flex flexDirection="column" gap="spacingM">
+        <Flex justifyContent="space-between" alignItems="flex-start">
+          <Flex flexDirection="column" gap="spacingXs">
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Asset Health</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">Orphaned assets, missing alt text, oversized files, and format breakdown.</Text>
+          </Flex>
+        </Flex>
+        <Flex gap="spacingS" alignItems="center" paddingTop="spacingL">
+          <Spinner />
+          <Text fontColor="gray500" fontSize="fontSizeS">Loading assets — may take a moment for large spaces…</Text>
+        </Flex>
+      </Flex>
+    );
+  }
   if (!assets) return <Note variant="negative">Could not load assets.</Note>;
 
   const orphans = assets.filter((a) => a.isOrphan);
@@ -110,11 +124,17 @@ export function AssetHealth() {
 
   return (
     <Flex flexDirection="column" gap="spacingL">
-      <Flex justifyContent="space-between" alignItems="center">
-        <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Asset Health</Text>
-        <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport('all', assets)}>
-          Export all CSV
-        </Button>
+      <Flex justifyContent="space-between" alignItems="flex-start">
+        <Flex flexDirection="column" gap="spacingXs">
+          <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Asset Health</Text>
+          <Text fontColor="gray600" fontSize="fontSizeS">Orphaned assets, missing alt text, oversized files, and format breakdown.</Text>
+        </Flex>
+        <Flex gap="spacingS">
+          <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport('all', assets)}>
+            Export all CSV
+          </Button>
+          <Button variant="secondary" size="small" onClick={() => refetch()}>Refresh</Button>
+        </Flex>
       </Flex>
 
       {/* Compact metric strip */}
@@ -183,7 +203,7 @@ export function AssetHealth() {
                           )}
                           <Text
                             style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }}
-                            onClick={() => openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, a.id)}
+                            onClick={() => (sdk as any).navigator?.openAsset(a.id, { slideIn: true })}
                           >
                             {a.title}
                           </Text>
