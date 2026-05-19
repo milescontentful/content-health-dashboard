@@ -15,7 +15,7 @@ import {
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openAssetInNewTab } from '../../lib/openInNewTab';
-import { extractAiActionId, invokeAiAction } from '../../lib/aiActions';
+import { extractAiActionId, invokeAiActionAndWait } from '../../lib/aiActions';
 import type { ModuleProps } from '../types';
 
 interface AssetRow {
@@ -104,28 +104,16 @@ export function AssetHealth({ installationParams }: ModuleProps) {
     setAltErrors((e) => { const n = { ...e }; delete n[asset.id]; return n; });
 
     try {
-      const res = await invokeAiAction(
+      // Invoke the AI Action — it auto-discovers MediaReference/Reference variables
+      // and maps the asset ID to them, then polls until done.
+      // The action is expected to write the alt text back to the asset directly.
+      await invokeAiActionAndWait(
         sdk.cma,
         spaceId,
         environmentId,
         altTextActionId,
-        { assetId: asset.id, imageUrl: asset.url },
+        { assetId: asset.id },
       );
-
-      const altText: string =
-        (res as any)?.altText ??
-        (res as any)?.result?.altText ??
-        (res as any)?.output ??
-        '';
-      if (!altText) throw new Error('AI action returned no alt text.');
-
-      // Write alt text back to asset description field
-      const localesRes = await (sdk.cma as any).locale.getMany({});
-      const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? 'en-US';
-      const fullAsset = await (sdk.cma as any).asset.get({ assetId: asset.id });
-      if (!fullAsset.fields.description) fullAsset.fields.description = {};
-      fullAsset.fields.description[defaultLocale] = altText;
-      await (sdk.cma as any).asset.update({ assetId: asset.id }, fullAsset);
 
       await queryClient.invalidateQueries({ queryKey: ['asset-health'] });
       sdk.notifier.success('Alt text generated and saved.');

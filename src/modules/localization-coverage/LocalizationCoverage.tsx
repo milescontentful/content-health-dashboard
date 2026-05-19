@@ -15,7 +15,7 @@ import {
   Menu,
 } from '@contentful/f36-components';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
-import { extractAiActionId, invokeAiAction } from '../../lib/aiActions';
+import { extractAiActionId, invokeAiActionAndWait } from '../../lib/aiActions';
 import type { ModuleProps } from '../types';
 
 interface LocaleField {
@@ -112,54 +112,21 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
     entryId: string,
     targetLocale: string,
     sourceLocale: string,
-    fields: Record<string, Record<string, unknown>>,
   ) => {
     const key = `${entryId}-${targetLocale}`;
     setTranslating((t) => ({ ...t, [key]: true }));
     setTranslateErrors((e) => { const n = { ...e }; delete n[key]; return n; });
 
     try {
-      // Build plain text fields from source locale for the action to translate
-      const sourceFields: Record<string, string> = {};
-      for (const [fieldId, fieldVal] of Object.entries(fields)) {
-        const val = fieldVal?.[sourceLocale];
-        if (typeof val === 'string' && val) sourceFields[fieldId] = val;
-        else if (val && typeof val === 'object' && (val as any).nodeType === 'document') {
-          // Rich text: extract plain text
-          const extractText = (node: any): string =>
-            node.value ?? (node.content ?? []).map(extractText).join(' ');
-          sourceFields[fieldId] = extractText(val);
-        }
-      }
-
-      // Call the Contentful AI Action via the /ai_actions/{id}/invocations endpoint
-      const res = await invokeAiAction(
+      // Invoke the AI Action — it maps variable types automatically and polls until done.
+      // The action is expected to write translated fields directly back to the entry.
+      await invokeAiActionAndWait(
         sdk.cma,
         spaceId,
         environmentId,
         translationActionId,
-        { entryId, sourceLocale, targetLocale, fields: sourceFields },
+        { entryId, targetLocale, sourceLocale },
       );
-
-      // Accept the translated fields from any reasonable response shape
-      const translated: Record<string, string> =
-        (res as any)?.fields ??
-        (res as any)?.translatedFields ??
-        (res as any)?.result?.fields ??
-        {};
-
-      if (!Object.keys(translated).length) {
-        throw new Error('AI action returned no translated fields.');
-      }
-
-      // Write translated fields back to the entry
-      const entry = await (sdk.cma as any).entry.get({ entryId });
-      for (const [fieldId, value] of Object.entries(translated)) {
-        if (entry.fields[fieldId] !== undefined) {
-          entry.fields[fieldId][targetLocale] = value;
-        }
-      }
-      await (sdk.cma as any).entry.update({ entryId }, entry);
 
       // Refresh the entries list
       await queryClient.invalidateQueries({ queryKey: ['localization-entries', selectedCtId] });
@@ -347,7 +314,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                                 <Button
                                   variant="secondary"
                                   size="small"
-                                  onClick={() => handleTranslate(row.id, missingLocales[0], defaultLocale, row.rawFields)}
+                                  onClick={() => handleTranslate(row.id, missingLocales[0], defaultLocale)}
                                 >
                                   Translate → {missingLocales[0]} ✦
                                 </Button>
@@ -367,12 +334,12 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                                   </Menu.Trigger>
                                   <Menu.List>
                                     {missingLocales.map((l) => (
-                                      <Menu.Item key={l} onClick={() => handleTranslate(row.id, l, defaultLocale, row.rawFields)}>
+                                      <Menu.Item key={l} onClick={() => handleTranslate(row.id, l, defaultLocale)}>
                                         → {l}
                                       </Menu.Item>
                                     ))}
                                     <Menu.Divider />
-                                    <Menu.Item onClick={() => missingLocales.forEach((l) => handleTranslate(row.id, l, defaultLocale, row.rawFields))}>
+                                    <Menu.Item onClick={() => missingLocales.forEach((l) => handleTranslate(row.id, l, defaultLocale))}>
                                       Translate all missing
                                     </Menu.Item>
                                   </Menu.List>
