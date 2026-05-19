@@ -36,7 +36,7 @@ export function PersonalizationWidget({ onNavigate }: HomeWidgetProps) {
   });
 
   return (
-    <Card padding="default">
+    <Card padding="default" style={{ height: '100%' }}>
       <Flex flexDirection="column" gap="spacingS">
         <Flex justifyContent="space-between" alignItems="center">
           <Text fontWeight="fontWeightDemiBold">Personalization</Text>

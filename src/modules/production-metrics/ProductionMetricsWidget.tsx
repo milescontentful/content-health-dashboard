@@ -24,7 +24,7 @@ export function ProductionMetricsWidget({ onNavigate }: HomeWidgetProps) {
   return (
     <Card
       onClick={() => onNavigate('production-metrics')}
-      style={{ cursor: 'pointer' }}
+      style={{ cursor: 'pointer', height: '100%', boxSizing: 'border-box' }}
     >
       <Text fontWeight="fontWeightDemiBold" marginBottom="spacingS" as="p">
         Production

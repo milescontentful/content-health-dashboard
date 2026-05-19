@@ -5,7 +5,7 @@ export function CustomContentWidget({ installationParams, onNavigate }: HomeWidg
   const cards = installationParams.customCards ?? [];
 
   return (
-    <Card padding="default">
+    <Card padding="default" style={{ height: '100%' }}>
       <Flex flexDirection="column" gap="spacingS">
         <Flex justifyContent="space-between" alignItems="center">
           <Text fontWeight="fontWeightDemiBold">Custom Cards</Text>

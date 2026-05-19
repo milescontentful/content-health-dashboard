@@ -47,6 +47,7 @@ function SortableWidget({
     opacity: isDragging ? 0.5 : 1,
     position: 'relative',
     cursor: 'default',
+    height: '100%',
   };
 
   const Widget = mod.homeWidget!;
@@ -301,8 +302,10 @@ const Home = () => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gridAutoRows: 'minmax(190px, auto)',
                   gap: 16,
+                  alignItems: 'stretch',
                 }}
               >
                 {sortedModules.map((mod) => (
