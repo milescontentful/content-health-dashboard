@@ -1,89 +1,157 @@
 # Agent Guide — content-health-dashboard
 
 ## What This App Does
-Forked from Contentful's `content-insights` app. Provides a dashboard for content production metrics AND content quality signals (localization coverage, SEO/a11y, asset health, AI audit, taxonomy coverage).
 
-Surfaces metrics in:
-- **Home** (`LOCATION_HOME`) — compact health score widget
-- **Page** (`LOCATION_PAGE`) — full tabbed dashboard
-- **App Configuration** (`LOCATION_APP_CONFIG`) — installation parameters
+A Contentful App Framework app providing a 11-module dashboard across three locations:
 
-## Archetype
-Standard Vite + React + TypeScript app built with `create-contentful-app`.
+- **Home** (`LOCATION_HOME`) — draggable widget grid with health summary bar; auto-saves order via CMA
+- **Page** (`LOCATION_PAGE`) — full tabbed dashboard driven by the module registry
+- **App Configuration** (`LOCATION_APP_CONFIG`) — 7-section config screen
 
-## Locations
+## Module Registry
 
-| Location | File | Purpose |
-|----------|------|---------|
-| `LOCATION_APP_CONFIG` | `src/locations/ConfigScreen.tsx` | Install/config: time windows, content type filters, future AI Action IDs |
-| `LOCATION_PAGE` | `src/locations/Page.tsx` | Full-page dashboard with tabbed modules |
-| `LOCATION_HOME` | `src/locations/Home.tsx` | Compact health-score widget |
-
-## Key Dependencies
-
-| Package | Role |
-|---------|------|
-| `@contentful/app-sdk` | App Framework SDK (locations, dialog, entry handles) |
-| `@contentful/react-apps-toolkit` | `useSDK`, `useCMA`, `useAutoResizer` |
-| `@contentful/f36-components` + tokens | Forma 36 UI — required for all UI |
-| `contentful-management` | CMA client for entries, content types, releases |
-| `@tanstack/react-query` | Caching layer for CMA reads |
-| `recharts` | Charts |
-| `dayjs` | Date math |
-
-## Source Layout
+All modules self-register via a side-effect import. The registry is the source of truth for tab order, enabled state, and widget components.
 
 ```
-src/
-├── App.tsx                  # Location router
-├── index.tsx                # Entry point + react-query provider
-├── locations/               # ConfigScreen, Home, Page
-├── components/              # MetricCard, ChartWrapper, *Table, Dashboard
-├── hooks/                   # useAllEntries, useReleases, useScheduledActions, ...
-├── metrics/                 # MetricsCalculator.ts (aggregation logic)
-├── utils/                   # types, dateUtils, EntryUtils, Validator, consts
-└── scripts/                 # generateEntries / deleteEntries (demo seed)
-test/                        # Vitest tests, hook tests, mocks
+src/modules/
+├── types.ts              DashboardModule, AppInstallationParameters, ThemeConfig, etc.
+├── registry.ts           registerModule(), getEnabledModules(), getModuleConfigs()
+├── index.ts              Imports all modules — add new ones here
+├── StudioThemeProvider.tsx  CSS-variable theming over Forma 36
+├── production-metrics/   Publishing velocity, time-to-publish, stale content
+├── localization-coverage/ Entries × locales heatmap
+├── search-builder/       AND/OR/NOT visual query builder
+├── seo-aeo-geo/          SEO + AEO + GEO scorecards per entry
+├── asset-health/         Orphans, missing alt, oversized, format breakdown
+├── taxonomy-coverage/    nt_concept coverage % per content type
+├── custom-content/       Free-form cards authored in Config Screen
+├── reference-risk/       Broken links, orphaned entries, blast-radius analysis
+├── ai-audit/             Contentful AI Action integration (grade-content)
+├── personalization/      Ninetailed CMA-native: experiences, audiences, coverage
+└── analytics/            Publishing velocity + Contentful Analytics placeholder
 ```
 
 ## Architecture Invariants
 
-- **Data fetching pattern**: every CMA read goes through a hook in `src/hooks/`. Hooks wrap `contentful-management` calls in TanStack Query. Components should never call the CMA directly.
-- **Metric aggregation lives in `src/metrics/MetricsCalculator.ts`** — new metrics should add functions here, not embed math in components.
-- **Type definitions live in `src/utils/types.ts`** — extend there for new modules.
-- **Home location must stay lightweight** — it renders on every Contentful home visit. Defer heavy queries to Page.
-- **All UI uses Forma 36** — no raw `<div>` styling; use F36 tokens and components.
-- **Installation parameters** drive configuration. Persist user choices via `sdk.app.setParameters()` from ConfigScreen.
+1. **Module shape**: every module exports a React component (`ModuleProps`) and optionally a home widget (`HomeWidgetProps`). Both are registered via `registerModule()` in `index.ts`.
+2. **No cross-module dependencies** — each module is self-contained.
+3. **CMA access**: use `(sdk.cma as any).resource.method()` in module components. TanStack Query wraps all CMA reads. No direct fetch() calls.
+4. **Forma 36 only** — no raw HTML, no Tailwind, no ad-hoc CSS. Use F36 tokens for spacing.
+5. **TypeScript strict** — avoid `any` except for `sdk.cma` calls (the CMA types don't fully align with App SDK types in this version).
+6. **Home location**: keep queries lightweight. The health summary bar uses a single batched CMA call. Module widgets should cap at 1–2 CMA calls.
+7. **Navigation from Home → Page**: write moduleId to `sessionStorage` key `chd-nav-module`, then call `sdk.navigator.openCurrentAppPage()`. Page.tsx reads and clears this key on mount.
+8. **Open content in new tab**: use `src/lib/openInNewTab.ts` — never use `sdk.navigator.openEntry({ slideIn: true })` from Page location.
+9. **CSV export**: use `src/lib/csv.ts` — no external deps, BOM for Excel, `downloadCsv(filename, headers, rows)`.
+10. **Auto-save from Home**: use `sdk.cma.appInstallation.upsert({ appDefinitionId: sdk.ids.app }, { parameters })` — this is the only way to persist params outside the Config Screen.
 
-## Extension Modules (planned)
+## Key Dependencies
 
-Each new module follows the same shape:
+| Package | Role |
+|---|---|
+| `@contentful/app-sdk` | App Framework SDK |
+| `@contentful/react-apps-toolkit` | `useSDK()` hook |
+| `@contentful/f36-components` + `f36-icons` + `f36-tokens` | Forma 36 UI |
+| `contentful-management` | CMA client |
+| `@tanstack/react-query` | CMA caching |
+| `recharts` | Charts |
+| `@dnd-kit/core` + `sortable` + `utilities` | Drag-and-drop (Config Screen + Home) |
+| `lucide-react` | Additional icons beyond F36 |
+| `dayjs` | Date math |
+| `use-debounce` | Debouncing field inputs |
 
+## Icon Names (F36)
+
+Common icons available from `@contentful/f36-icons`:
+- Download: `DownloadSimpleIcon`
+- AI/OpenAI: `OpenAiLogoIcon`
+- Drag: `DotsSixVerticalIcon`
+- Delete: `TrashSimpleIcon`
+- Add: `PlusIcon`
+- Search: `MagnifyingGlassIcon`
+- Warning: `WarningIcon`
+- Check: `CheckCircleIcon`
+- Info: `InfoIcon`
+- Close: `XIcon`
+
+There is **no** `DownloadIcon`, `AiIcon`, `DragIcon`, `DeleteIcon`, `PlusCircleIcon`, or `Divider` in F36 v5.
+
+## F36 Card Padding
+
+`Card padding` only accepts `"default"`, `"none"`, or `"large"`. Not `"spacingS"` or `"spacingM"`.
+
+## Config Screen Sections
+
+The Config Screen has 7 sections. The `activeSection` state type must include all of them:
+`'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'p13n' | 'contentful-analytics'`
+
+## AppInstallationParameters Shape
+
+```ts
+interface AppInstallationParameters {
+  // Production metrics (from content-insights)
+  defaultContentTypes?: string[];
+  needsUpdateMonths?: number;
+  recentlyPublishedDays?: number;
+  showUpcomingReleases?: boolean;
+  timeToPublishDays?: number;
+  defaultCreatorViewSetting?: CreatorViewSetting;
+
+  // Module system
+  modules?: ModuleConfig[];          // { id, enabled, order }[]
+
+  // Theming
+  theme?: ThemeConfig;
+
+  // Custom cards
+  customCards?: CustomCard[];
+
+  // Search
+  savedSearches?: SavedSearch[];
+
+  // AI Audit
+  aiActionId?: string;
+
+  // Personalization
+  ninetailedApiKey?: string;
+  ninetailedEnvironmentId?: string;
+
+  // Contentful Analytics
+  analyticsApiKey?: string;
+}
 ```
-src/
-├── hooks/use<Module>.ts            # CMA fetch + react-query
-├── metrics/<Module>Calculator.ts   # Pure aggregation/scoring
-├── components/<Module>Tab.tsx      # Forma 36 UI
-└── utils/types.ts                  # Shared types extended
-```
 
-Roadmap order:
-1. **LocalizationCoverage** — entries × locales matrix, uses `sdk.locales` + entry field presence checks
-2. **AssetHealth** — orphan detection (no `links_to_asset`), size/format/alt-text analysis
-3. **SeoA11yAudit** — heading order, meta presence, alt-text completeness, readability
-4. **AiContentAudit** — calls a configured AI Action across N entries, aggregates flags
-5. **TaxonomyCoverage** — `sys.metadata.concepts` coverage per content type
-6. **ReferenceRisk** — `links_to_entry` blast radius per entry
+## Adding a New Module
 
-## Never / Always
+1. `mkdir src/modules/my-module`
+2. Create `MyModule.tsx` — `export function MyModule({ installationParams }: ModuleProps)`
+3. Create `MyModuleWidget.tsx` — `export function MyModuleWidget({ installationParams, onNavigate }: HomeWidgetProps)` (optional but recommended)
+4. Create `index.ts`:
+   ```ts
+   import { registerModule } from '../registry';
+   import { MyModule } from './MyModule';
+   import { MyModuleWidget } from './MyModuleWidget';
 
-- **Never** hardcode app definition IDs or org IDs — these are env vars / installation parameters.
-- **Never** call the CMA directly from a component — always go through a `hooks/use*.ts`.
-- **Never** introduce a new dependency without checking `package.json` first; reuse Forma 36, react-query, recharts, dayjs.
-- **Always** handle empty states with the F36 `Note` component.
-- **Always** disable interactive controls during save / mutation.
-- **Always** call `sdk.app.setReady()` after async init on the Config Screen.
+   registerModule({
+     id: 'my-module',
+     label: 'My Module',
+     description: 'One-line description for the Config Screen.',
+     icon: 'SomeIcon',       // string label only, not used for rendering currently
+     defaultEnabled: true,
+     defaultOrder: 11,       // after existing modules
+     component: MyModule,
+     homeWidget: MyModuleWidget,
+   });
+   ```
+5. Add `import './my-module';` to `src/modules/index.ts`
 
-## Provenance
+The module appears in: tab bar, Config Screen module manager, Home widget grid.
 
-Forked from `contentful/apps/apps/content-insights` (Apache 2.0). The Contentful-internal `deploy` script with hardcoded app definition ID has been removed; use `npm run create-app-definition` + `npm run upload` instead.
+## Verification Checklist Before Committing
+
+- `npm run build` passes (tsc + vite)
+- `npm run lint` passes (no errors, no warnings)
+- No `any` without justification
+- All F36 icon names are correct (see Icon Names above)
+- Card padding uses only `"default"`, `"none"`, or `"large"`
+- New modules registered in `src/modules/index.ts`
+- New `AppInstallationParameters` fields added to `src/modules/types.ts`
