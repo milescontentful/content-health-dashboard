@@ -56,10 +56,24 @@ function TabBar({
   );
 }
 
+const SESSION_KEY = 'chd-nav-module';
+
 function PageShell({ params }: { params: AppInstallationParameters }) {
   const theme = params.theme ?? DEFAULT_THEME;
   const enabledModules = getEnabledModules(params);
-  const [activeId, setActiveId] = useState(enabledModules[0]?.id ?? '');
+
+  const [activeId, setActiveId] = useState(() => {
+    // Pick up module requested from Home widget navigation
+    const requested = sessionStorage.getItem(SESSION_KEY);
+    if (requested) {
+      sessionStorage.removeItem(SESSION_KEY);
+      if (enabledModules.some((m) => m.id === requested)) return requested;
+    }
+    // Also support ?module= query param
+    const param = new URLSearchParams(window.location.search).get('module');
+    if (param && enabledModules.some((m) => m.id === param)) return param;
+    return enabledModules[0]?.id ?? '';
+  });
 
   useEffect(() => {
     if (!activeId && enabledModules.length > 0) {
