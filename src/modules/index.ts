@@ -7,3 +7,5 @@ import './seo-aeo-geo';
 import './asset-health';
 import './taxonomy-coverage';
 import './custom-content';
+import './reference-risk';
+import './ai-audit';

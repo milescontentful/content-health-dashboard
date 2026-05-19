@@ -1,5 +1,6 @@
 import { registerModule } from '../registry';
 import { TaxonomyCoverage } from './TaxonomyCoverage';
+import { TaxonomyWidget } from './TaxonomyWidget';
 
 registerModule({
   id: 'taxonomy-coverage',
@@ -9,4 +10,5 @@ registerModule({
   defaultEnabled: true,
   defaultOrder: 5,
   component: TaxonomyCoverage,
+  homeWidget: TaxonomyWidget,
 });

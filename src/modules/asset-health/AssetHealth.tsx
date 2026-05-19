@@ -9,7 +9,10 @@ import {
   Table,
   Tabs,
   Card,
+  Button,
 } from '@contentful/f36-components';
+import { DownloadSimpleIcon } from '@contentful/f36-icons';
+import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 
 interface AssetRow {
   id: string;
@@ -98,9 +101,20 @@ export function AssetHealth() {
     formatBreakdown[ext] = (formatBreakdown[ext] ?? 0) + 1;
   }
 
+  const handleExport = (label: string, rows: AssetRow[]) => {
+    const headers = ['Asset ID', 'Title', 'Content Type', 'Size (bytes)', 'Has Alt Text', 'Is Orphan', 'URL'];
+    const csvRows = rows.map((a) => [a.id, a.title, a.contentType, a.size, a.hasAltText ? 'Yes' : 'No', a.isOrphan ? 'Yes' : 'No', a.url]);
+    downloadCsv(`asset-health-${label}-${formatDateForCsv(new Date()).replace(/[ :]/g, '-')}.csv`, headers, csvRows);
+  };
+
   return (
     <Flex flexDirection="column" gap="spacingL">
-      <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Asset Health</Text>
+      <Flex justifyContent="space-between" alignItems="center">
+        <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">Asset Health</Text>
+        <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport('all', assets)}>
+          Export all CSV
+        </Button>
+      </Flex>
 
       {/* Compact metric strip */}
       <Card padding="default">
@@ -135,6 +149,13 @@ export function AssetHealth() {
           { id: 'oversized', rows: oversized, emptyMsg: 'No oversized assets found.' },
         ].map(({ id, rows, emptyMsg }) => (
           <Tabs.Panel key={id} id={id}>
+            {rows.length > 0 && (
+              <Flex justifyContent="flex-end" marginBottom="spacingS">
+                <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={() => handleExport(id, rows)}>
+                  Export list CSV
+                </Button>
+              </Flex>
+            )}
             {rows.length === 0 ? (
               <Note variant="positive">{emptyMsg}</Note>
             ) : (

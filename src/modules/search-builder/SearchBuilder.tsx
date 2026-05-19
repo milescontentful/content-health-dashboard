@@ -16,9 +16,10 @@ import {
   IconButton,
   Stack,
 } from '@contentful/f36-components';
-import { PlusIcon, TrashSimpleIcon, MagnifyingGlassIcon } from '@contentful/f36-icons';
+import { PlusIcon, TrashSimpleIcon, MagnifyingGlassIcon, DownloadSimpleIcon } from '@contentful/f36-icons';
 import { useSearchEntries } from '../../hooks/useSearchEntries';
 import { setFieldMetaCache } from '../../utils/queryBuilder';
+import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import type { SearchQuery, SearchCondition } from '../types';
 
 const OPERATORS = [
@@ -175,7 +176,26 @@ export function SearchBuilder() {
 
           {!isFetching && entries.length > 0 && (
             <>
-              <Text fontColor="gray600">{total} result{total !== 1 ? 's' : ''}</Text>
+              <Flex justifyContent="space-between" alignItems="center">
+                <Text fontColor="gray600">{total} result{total !== 1 ? 's' : ''}</Text>
+                <Button
+                  variant="secondary"
+                  size="small"
+                  startIcon={<DownloadSimpleIcon />}
+                  onClick={() => {
+                    const headers = ['Entry ID', 'Title', 'Content Type', 'Status', 'Updated'];
+                    const rows = entries.map((entry) => {
+                      const firstField = Object.values(entry.fields)[0] as any;
+                      const title = firstField ? Object.values(firstField)[0] as string : entry.sys.id;
+                      const status = entryStatus(entry);
+                      return [entry.sys.id, title || entry.sys.id, entry.sys.contentType.sys.id, status, formatDateForCsv(entry.sys.updatedAt)];
+                    });
+                    downloadCsv(`search-results-${formatDateForCsv(new Date()).replace(/[ :]/g, '-')}.csv`, headers, rows);
+                  }}
+                >
+                  Export CSV
+                </Button>
+              </Flex>
               <Table>
                 <Table.Head>
                   <Table.Row>

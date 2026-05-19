@@ -1,5 +1,6 @@
 import { registerModule } from '../registry';
 import { CustomContent } from './CustomContent';
+import { CustomContentWidget } from './CustomContentWidget';
 
 registerModule({
   id: 'custom-content',
@@ -9,4 +10,5 @@ registerModule({
   defaultEnabled: true,
   defaultOrder: 6,
   component: CustomContent,
+  homeWidget: CustomContentWidget,
 });

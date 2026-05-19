@@ -1,5 +1,6 @@
 import { registerModule } from '../registry';
 import { SearchBuilder } from './SearchBuilder';
+import { SearchBuilderWidget } from './SearchBuilderWidget';
 
 registerModule({
   id: 'search-builder',
@@ -9,4 +10,5 @@ registerModule({
   defaultEnabled: true,
   defaultOrder: 2,
   component: SearchBuilder,
+  homeWidget: SearchBuilderWidget,
 });

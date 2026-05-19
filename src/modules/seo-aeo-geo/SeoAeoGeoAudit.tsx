@@ -13,8 +13,10 @@ import {
   Table,
   Tabs,
   Stack,
+  Button,
 } from '@contentful/f36-components';
-import { CheckCircleIcon, XIcon } from '@contentful/f36-icons';
+import { CheckCircleIcon, XIcon, DownloadSimpleIcon } from '@contentful/f36-icons';
+import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { scoreSEO, scoreAEO, scoreGEO, type ScoreResult } from './scorer';
 
 function SimpleProgress({ value }: { value: number }) {
@@ -203,6 +205,16 @@ export function SeoAeoGeoAudit() {
 
   const selectedEntry = auditRows?.find((r) => r.id === selectedEntryId);
 
+  const handleExport = () => {
+    if (!auditRows) return;
+    const headers = ['Entry ID', 'Title', 'SEO Score', 'AEO Score', 'GEO Score', 'Composite', 'SEO Issues', 'AEO Issues', 'GEO Issues'];
+    const rows = auditRows.map((r) => [
+      r.id, r.title, r.seo.score, r.aeo.score, r.geo.score, r.composite,
+      r.seo.issues.join('; '), r.aeo.issues.join('; '), r.geo.issues.join('; '),
+    ]);
+    downloadCsv(`seo-aeo-geo-audit-${formatDateForCsv(new Date()).replace(/[ :]/g, '-')}.csv`, headers, rows);
+  };
+
   return (
     <Flex flexDirection="column" gap="spacingM">
       {/* Header row */}
@@ -213,18 +225,25 @@ export function SeoAeoGeoAudit() {
             Score published entries across classic SEO, Answer Engine, and Generative Engine signals.
           </Text>
         </Flex>
-        <FormControl style={{ marginBottom: 0, minWidth: 220 }}>
-          <FormControl.Label>Content type</FormControl.Label>
-          <Select
-            value={contentTypeId}
-            onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
-          >
-            <Select.Option value="">Select a content type…</Select.Option>
-            {ctData?.map((ct) => (
-              <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
-            ))}
-          </Select>
-        </FormControl>
+        <Flex gap="spacingS" alignItems="flex-end">
+          {auditRows && auditRows.length > 0 && (
+            <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={handleExport}>
+              Export CSV
+            </Button>
+          )}
+          <FormControl style={{ marginBottom: 0, minWidth: 220 }}>
+            <FormControl.Label>Content type</FormControl.Label>
+            <Select
+              value={contentTypeId}
+              onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
+            >
+              <Select.Option value="">Select a content type…</Select.Option>
+              {ctData?.map((ct) => (
+                <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
+              ))}
+            </Select>
+          </FormControl>
+        </Flex>
       </Flex>
 
       <ScoringRubric />

@@ -74,6 +74,9 @@ export interface AppInstallationParameters {
 
   // Search builder saved queries
   savedSearches?: SavedSearch[];
+
+  // AI Content Audit
+  aiActionId?: string;
 }
 
 export interface SavedSearch {

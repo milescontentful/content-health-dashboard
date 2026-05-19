@@ -1,5 +1,6 @@
 import { registerModule } from '../registry';
 import { AssetHealth } from './AssetHealth';
+import { AssetHealthWidget } from './AssetHealthWidget';
 
 registerModule({
   id: 'asset-health',
@@ -9,4 +10,5 @@ registerModule({
   defaultEnabled: true,
   defaultOrder: 4,
   component: AssetHealth,
+  homeWidget: AssetHealthWidget,
 });

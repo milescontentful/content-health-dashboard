@@ -1,5 +1,6 @@
 import { registerModule } from '../registry';
 import { SeoAeoGeoAudit } from './SeoAeoGeoAudit';
+import { SeoAeoGeoWidget } from './SeoAeoGeoWidget';
 
 registerModule({
   id: 'seo-aeo-geo',
@@ -9,4 +10,5 @@ registerModule({
   defaultEnabled: true,
   defaultOrder: 3,
   component: SeoAeoGeoAudit,
+  homeWidget: SeoAeoGeoWidget,
 });

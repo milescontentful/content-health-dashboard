@@ -14,6 +14,7 @@ import {
   TextInput,
   Button,
   Card,
+  Note,
   IconButton,
   Stack,
 } from '@contentful/f36-components';
@@ -321,7 +322,7 @@ const ConfigScreen = () => {
   const [parameters, setParameters] = useState<AppInstallationParameters>({});
   const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards'>('analytics');
+  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai'>('analytics');
 
   // Module configs derived from params
   const moduleConfigs = getModuleConfigs(parameters);
@@ -412,6 +413,7 @@ const ConfigScreen = () => {
     { id: 'modules', label: 'Modules' },
     { id: 'theme', label: 'Theme' },
     { id: 'cards', label: 'Custom Cards' },
+    { id: 'ai', label: 'AI Audit' },
   ] as const;
 
   return (
@@ -436,7 +438,7 @@ const ConfigScreen = () => {
           ))}
         </Flex>
 
-        <hr style={{ border: "none", borderTop: "1px solid #e5e9ed", margin: "24px 0" }} />
+        <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', marginBottom: 24, width: '100%' }} />
 
         {/* ── Analytics ── */}
         {activeSection === 'analytics' && (
@@ -548,8 +550,37 @@ const ConfigScreen = () => {
           </Flex>
         )}
 
+        {/* ── AI Audit ── */}
+        {activeSection === 'ai' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">AI Audit configuration</Heading>
+            <Text fontColor="gray600" marginBottom="spacingM">
+              Connect the AI Audit module to a Contentful App Action that grades content quality.
+              The action should accept <code>{'{ entryId, title, body, contentType }'}</code> and return{' '}
+              <code>{'{ score, summary, suggestions[] }'}</code>.
+            </Text>
+            <Note variant="neutral">
+              Docs:{' '}
+              <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-actions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
+                Contentful App Actions →
+              </a>
+            </Note>
+            <FormControl>
+              <FormControl.Label>App Action ID</FormControl.Label>
+              <TextInput
+                value={(parameters as any).aiActionId ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, aiActionId: e.target.value }))}
+                placeholder="grade-content"
+              />
+              <FormControl.HelpText>
+                The ID of the App Action to call for content grading (e.g. <code>grade-content</code>).
+              </FormControl.HelpText>
+            </FormControl>
+          </Flex>
+        )}
+
         {/* Setup guide */}
-        <hr style={{ border: "none", borderTop: "1px solid #e5e9ed", margin: "24px 0" }} />
+        <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', marginTop: 48, marginBottom: 24, width: '100%' }} />
         <Heading as="h3" marginBottom="spacingM">Set as home page</Heading>
         <Flex flexDirection="row" gap="spacing2Xl" marginBottom="spacing2Xl">
           <Flex flexDirection="column" style={styles.setupColumn} justifyContent="space-between">
