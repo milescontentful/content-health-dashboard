@@ -77,6 +77,13 @@ export interface AppInstallationParameters {
 
   // AI Content Audit
   aiActionId?: string;
+
+  // Personalization (Ninetailed)
+  ninetailedApiKey?: string;
+  ninetailedEnvironmentId?: string;
+
+  // Contentful Analytics
+  analyticsApiKey?: string;
 }
 
 export interface SavedSearch {

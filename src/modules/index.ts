@@ -9,3 +9,5 @@ import './taxonomy-coverage';
 import './custom-content';
 import './reference-risk';
 import './ai-audit';
+import './personalization';
+import './analytics';

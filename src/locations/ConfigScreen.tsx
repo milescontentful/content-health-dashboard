@@ -17,6 +17,7 @@ import {
   Note,
   IconButton,
   Stack,
+  Badge,
 } from '@contentful/f36-components';
 import { DotsSixVerticalIcon, PlusIcon, TrashSimpleIcon, InfoIcon } from '@contentful/f36-icons';
 import { useSDK } from '@contentful/react-apps-toolkit';
@@ -322,7 +323,7 @@ const ConfigScreen = () => {
   const [parameters, setParameters] = useState<AppInstallationParameters>({});
   const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai'>('analytics');
+  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'p13n' | 'contentful-analytics'>('analytics');
 
   // Module configs derived from params
   const moduleConfigs = getModuleConfigs(parameters);
@@ -414,6 +415,8 @@ const ConfigScreen = () => {
     { id: 'theme', label: 'Theme' },
     { id: 'cards', label: 'Custom Cards' },
     { id: 'ai', label: 'AI Audit' },
+    { id: 'p13n', label: 'Personalization' },
+    { id: 'contentful-analytics', label: 'Contentful Analytics' },
   ] as const;
 
   return (
@@ -574,6 +577,75 @@ const ConfigScreen = () => {
               />
               <FormControl.HelpText>
                 The ID of the App Action to call for content grading (e.g. <code>grade-content</code>).
+              </FormControl.HelpText>
+            </FormControl>
+          </Flex>
+        )}
+
+        {/* ── Personalization ── */}
+        {activeSection === 'p13n' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">Personalization (Ninetailed)</Heading>
+            <Text fontColor="gray600" marginBottom="spacingM">
+              The Personalization module works without any keys — it reads Ninetailed&apos;s content types
+              (<code>nt_experience</code>, <code>nt_audience</code>) directly from the CMA. Add a Ninetailed
+              Management API key below to unlock impression and conversion analytics in a future update.
+            </Text>
+            <Note variant="neutral">
+              No key needed for experience coverage, audiences, and content type heatmap.
+            </Note>
+            <FormControl>
+              <FormControl.Label>Ninetailed Management API key <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                value={parameters.ninetailedApiKey ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, ninetailedApiKey: e.target.value }))}
+                placeholder="nt_…"
+                type="password"
+              />
+              <FormControl.HelpText>
+                Found in your Ninetailed dashboard under API Keys. Required for impression/conversion data.
+              </FormControl.HelpText>
+            </FormControl>
+            <FormControl>
+              <FormControl.Label>Ninetailed Environment ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                value={parameters.ninetailedEnvironmentId ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, ninetailedEnvironmentId: e.target.value }))}
+                placeholder="main"
+              />
+              <FormControl.HelpText>Defaults to &quot;main&quot; if left blank.</FormControl.HelpText>
+            </FormControl>
+          </Flex>
+        )}
+
+        {/* ── Contentful Analytics ── */}
+        {activeSection === 'contentful-analytics' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">Contentful Analytics</Heading>
+            <Text fontColor="gray600" marginBottom="spacingM">
+              Contentful Analytics is currently in limited availability. Add your API key here so the
+              Analytics module can connect automatically when the API becomes generally available.
+            </Text>
+            <Note variant="neutral">
+              <Text fontSize="fontSizeS">
+                The Analytics tab already shows content velocity (publishing rate, top publishers, top content types)
+                using live CMA data — no key needed for that. The Contentful Analytics key unlocks page views,
+                engagement time, and traffic data.{' '}
+                <a href="https://www.contentful.com/blog/introducing-contentful-analytics/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
+                  Learn more →
+                </a>
+              </Text>
+            </Note>
+            <FormControl>
+              <FormControl.Label>Contentful Analytics API key <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                value={parameters.analyticsApiKey ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, analyticsApiKey: e.target.value }))}
+                placeholder="ca_…"
+                type="password"
+              />
+              <FormControl.HelpText>
+                Will be available in your Contentful organization settings when Analytics launches.
               </FormControl.HelpText>
             </FormControl>
           </Flex>
