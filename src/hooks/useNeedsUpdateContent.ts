@@ -3,7 +3,7 @@ import { HomeAppSDK, PageAppSDK } from '@contentful/app-sdk';
 import { useSDK } from '@contentful/react-apps-toolkit';
 import { useUsers } from './useUsers';
 import { useEntryTitlesForIds } from './useEntryTitlesForIds';
-import type { AppInstallationParameters } from '../locations/ConfigScreen';
+import type { AppInstallationParameters } from '../modules/types';
 import { ITEMS_PER_PAGE } from '../utils/consts';
 import { getEntryTitle, getUniqueUserIdsFromEntries } from '../utils/EntryUtils';
 import { parseDate, subMonths, msPerDay } from '../utils/dateUtils';

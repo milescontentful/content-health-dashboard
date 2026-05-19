@@ -10,7 +10,7 @@ import {
   useRecentlyPublishedContent,
   RecentlyPublishedItem,
 } from '../hooks/useRecentlyPublishedContent';
-import type { AppInstallationParameters } from '../locations/ConfigScreen';
+import type { AppInstallationParameters } from '../modules/types';
 import { ContentTable, TableColumn } from './ContentTable';
 import { getEnvironmentId } from '../utils/sdkUtils';
 

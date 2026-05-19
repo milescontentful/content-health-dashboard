@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BaseAppSDK } from '@contentful/app-sdk';
 import { AppInstallationProps, KeyValueMap } from 'contentful-management';
-import { AppInstallationParameters } from '../locations/ConfigScreen';
+import { AppInstallationParameters } from '../modules/types';
 
 export const useInstallationParameters = (sdk: BaseAppSDK) => {
   const [parameters, setParameters] = useState<KeyValueMap>(sdk.parameters.installation);

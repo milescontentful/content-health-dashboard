@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { ConfigAppSDK } from '@contentful/app-sdk';
 import {
   Heading,
@@ -11,8 +11,17 @@ import {
   Image,
   Select,
   Tooltip,
+  TextInput,
+  Button,
+  Card,
+  IconButton,
+  Stack,
 } from '@contentful/f36-components';
+import { DotsSixVerticalIcon, PlusIcon, TrashSimpleIcon, InfoIcon } from '@contentful/f36-icons';
 import { useSDK } from '@contentful/react-apps-toolkit';
+import { useSortable, SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import ContentTypeMultiSelect, { ContentType } from '../components/ContentTypeMultiSelect';
 import {
   NEEDS_UPDATE_MONTHS_RANGE,
@@ -25,63 +34,348 @@ import gearImage from '../assets/gear.png';
 import appearanceImage from '../assets/appearance.png';
 import { styles } from './ConfigScreen.styles';
 import { Validator } from '../utils/Validator';
-import { InfoIcon } from '@contentful/f36-icons';
 import TextInputInteger from '../components/TextInputInteger';
+import { getModuleConfigs } from '../modules/registry';
+import type { AppInstallationParameters, ModuleConfig, CustomCard, ThemeConfig } from '../modules/types';
+import { DEFAULT_THEME, CONTENTFUL_BRAND_COLORS } from '../modules/types';
+// Register modules so getModuleConfigs works
+import '../modules';
 
-export interface AppInstallationParameters {
-  defaultContentTypes?: string[];
-  needsUpdateMonths?: number;
-  recentlyPublishedDays?: number;
-  showUpcomingReleases?: boolean;
-  timeToPublishDays?: number;
-  defaultCreatorViewSetting?: CreatorViewSetting;
+// ─── Module manager row ───────────────────────────────────────────────────────
+
+function SortableModuleRow({
+  mod,
+  onToggle,
+}: {
+  mod: ReturnType<typeof getModuleConfigs>[0];
+  onToggle: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: mod.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card padding="default">
+        <Flex alignItems="center" gap="spacingS">
+          <span
+            {...attributes}
+            {...listeners}
+            style={{ cursor: 'grab', color: '#8c9bab', display: 'flex', alignItems: 'center' }}
+          >
+            <DotsSixVerticalIcon />
+          </span>
+          <Flex flexDirection="column" style={{ flex: 1 }}>
+            <Text fontWeight="fontWeightDemiBold">{mod.label}</Text>
+            <Text fontColor="gray500" fontSize="fontSizeS">
+              {mod.description}
+            </Text>
+          </Flex>
+          <Switch
+            id={`module-toggle-${mod.id}`}
+            isChecked={mod.enabled}
+            onChange={() => onToggle(mod.id)}
+          >
+            {mod.enabled ? 'On' : 'Off'}
+          </Switch>
+        </Flex>
+      </Card>
+    </div>
+  );
 }
 
+// ─── Custom card editor ───────────────────────────────────────────────────────
+
+function CustomCardEditor({
+  cards,
+  onChange,
+}: {
+  cards: CustomCard[];
+  onChange: (cards: CustomCard[]) => void;
+}) {
+  const addCard = () => {
+    onChange([
+      ...cards,
+      { id: `card-${Date.now()}`, title: 'New card', bullets: ['Add a bullet point'] },
+    ]);
+  };
+
+  const updateCard = (id: string, patch: Partial<CustomCard>) => {
+    onChange(cards.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  };
+
+  const removeCard = (id: string) => onChange(cards.filter((c) => c.id !== id));
+
+  const updateBullet = (cardId: string, idx: number, value: string) => {
+    const card = cards.find((c) => c.id === cardId)!;
+    const bullets = [...card.bullets];
+    bullets[idx] = value;
+    updateCard(cardId, { bullets });
+  };
+
+  const addBullet = (cardId: string) => {
+    const card = cards.find((c) => c.id === cardId)!;
+    updateCard(cardId, { bullets: [...card.bullets, ''] });
+  };
+
+  const removeBullet = (cardId: string, idx: number) => {
+    const card = cards.find((c) => c.id === cardId)!;
+    updateCard(cardId, { bullets: card.bullets.filter((_, i) => i !== idx) });
+  };
+
+  return (
+    <Stack flexDirection="column" spacing="spacingS">
+      {cards.map((card) => (
+        <Card key={card.id} padding="default">
+          <Flex justifyContent="space-between" alignItems="center" marginBottom="spacingS">
+            <TextInput
+              value={card.title}
+              onChange={(e) => updateCard(card.id, { title: e.target.value })}
+              placeholder="Card title"
+              size="small"
+            />
+            <IconButton
+              variant="transparent"
+              icon={<TrashSimpleIcon />}
+              aria-label="Delete card"
+              onClick={() => removeCard(card.id)}
+            />
+          </Flex>
+          <Stack flexDirection="column" spacing="spacingXs">
+            {card.bullets.map((bullet, idx) => (
+              <Flex key={idx} gap="spacingXs" alignItems="center">
+                <Text fontColor="gray500">•</Text>
+                <TextInput
+                  value={bullet}
+                  onChange={(e) => updateBullet(card.id, idx, e.target.value)}
+                  placeholder={`Bullet ${idx + 1}`}
+                  size="small"
+                  style={{ flex: 1 }}
+                />
+                <IconButton
+                  variant="transparent"
+                  icon={<TrashSimpleIcon />}
+                  aria-label="Remove bullet"
+                  size="small"
+                  onClick={() => removeBullet(card.id, idx)}
+                />
+              </Flex>
+            ))}
+            <Button size="small" variant="transparent" startIcon={<PlusIcon />} onClick={() => addBullet(card.id)}>
+              Add bullet
+            </Button>
+          </Stack>
+          <FormControl marginTop="spacingS">
+            <FormControl.Label>URL (optional)</FormControl.Label>
+            <TextInput
+              value={card.url ?? ''}
+              onChange={(e) => updateCard(card.id, { url: e.target.value })}
+              placeholder="https://..."
+              size="small"
+            />
+          </FormControl>
+        </Card>
+      ))}
+      <Button variant="secondary" startIcon={<PlusIcon />} onClick={addCard}>
+        Add card
+      </Button>
+    </Stack>
+  );
+}
+
+// ─── Theme editor ─────────────────────────────────────────────────────────────
+
+function ThemeEditor({
+  theme,
+  onChange,
+  sdk,
+}: {
+  theme: ThemeConfig;
+  onChange: (t: ThemeConfig) => void;
+  sdk: ConfigAppSDK;
+}) {
+  const update = (patch: Partial<ThemeConfig>) => onChange({ ...theme, ...patch });
+
+  const pickBackgroundFromContentful = async () => {
+    try {
+      const asset = await sdk.dialogs.selectSingleAsset({});
+      if (!asset) return;
+      const fileFields = (asset as any).fields?.file;
+      if (!fileFields) return;
+      const locale = Object.keys(fileFields)[0];
+      const url: string | undefined = fileFields[locale]?.url;
+      if (url) update({ backgroundImageUrl: url.startsWith('http') ? url : `https:${url}` });
+    } catch {
+      sdk.notifier.error('Could not pick asset. Please try again.');
+    }
+  };
+
+  const pickLogoFromContentful = async () => {
+    try {
+      const asset = await sdk.dialogs.selectSingleAsset({});
+      if (!asset) return;
+      const fileFields = (asset as any).fields?.file;
+      if (!fileFields) return;
+      const locale = Object.keys(fileFields)[0];
+      const url: string | undefined = fileFields[locale]?.url;
+      if (url) update({ brandLogoUrl: url.startsWith('http') ? url : `https:${url}` });
+    } catch {
+      sdk.notifier.error('Could not pick asset. Please try again.');
+    }
+  };
+
+  return (
+    <Stack flexDirection="column" spacing="spacingM">
+      <FormControl>
+        <FormControl.Label>Dashboard title</FormControl.Label>
+        <TextInput
+          value={theme.dashboardTitle}
+          onChange={(e) => update({ dashboardTitle: e.target.value })}
+          placeholder="Content Health Dashboard"
+        />
+      </FormControl>
+
+      <FormControl>
+        <FormControl.Label>Accent color</FormControl.Label>
+        <Flex gap="spacingXs" flexWrap="wrap" marginBottom="spacingXs">
+          {CONTENTFUL_BRAND_COLORS.map((c) => (
+            <button
+              key={c.hex}
+              title={c.name}
+              onClick={() => update({ accentColor: c.hex })}
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 6,
+                background: c.hex,
+                border: theme.accentColor === c.hex ? '3px solid #000' : '2px solid #ccc',
+                cursor: 'pointer',
+              }}
+            />
+          ))}
+        </Flex>
+        <Flex gap="spacingXs" alignItems="center">
+          <input
+            type="color"
+            value={theme.accentColor}
+            onChange={(e) => update({ accentColor: e.target.value })}
+            style={{ width: 40, height: 32, cursor: 'pointer', borderRadius: 4 }}
+          />
+          <TextInput
+            value={theme.accentColor}
+            onChange={(e) => update({ accentColor: e.target.value })}
+            size="small"
+            style={{ width: 120, fontFamily: 'monospace' }}
+          />
+        </Flex>
+      </FormControl>
+
+      <FormControl>
+        <FormControl.Label>Background image</FormControl.Label>
+        <Flex gap="spacingS" alignItems="center">
+          <Button size="small" variant="secondary" onClick={pickBackgroundFromContentful}>
+            Pick from Contentful Media
+          </Button>
+          {theme.backgroundImageUrl && (
+            <Button size="small" variant="transparent" onClick={() => update({ backgroundImageUrl: undefined })}>
+              Remove
+            </Button>
+          )}
+        </Flex>
+        {theme.backgroundImageUrl && (
+          <img
+            src={theme.backgroundImageUrl}
+            alt="Background preview"
+            style={{ marginTop: 8, width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 6, filter: `blur(${(theme.imageBlur ?? 5) * 0.4}px)` }}
+          />
+        )}
+      </FormControl>
+
+      <FormControl>
+        <FormControl.Label>Brand logo</FormControl.Label>
+        <Flex gap="spacingS" alignItems="center">
+          <Button size="small" variant="secondary" onClick={pickLogoFromContentful}>
+            Pick from Contentful Media
+          </Button>
+          {theme.brandLogoUrl && (
+            <>
+              <img src={theme.brandLogoUrl} alt="Logo preview" style={{ height: 28, width: 28, objectFit: 'contain' }} />
+              <Button size="small" variant="transparent" onClick={() => update({ brandLogoUrl: undefined })}>
+                Remove
+              </Button>
+            </>
+          )}
+        </Flex>
+      </FormControl>
+    </Stack>
+  );
+}
+
+// ─── Main Config Screen ───────────────────────────────────────────────────────
+
 const ConfigScreen = () => {
+  const sdk = useSDK<ConfigAppSDK>();
   const [parameters, setParameters] = useState<AppInstallationParameters>({});
   const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>([]);
-  const sdk = useSDK<ConfigAppSDK>();
-
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards'>('analytics');
+
+  // Module configs derived from params
+  const moduleConfigs = getModuleConfigs(parameters);
+  const [orderedModules, setOrderedModules] = useState(moduleConfigs);
+
+  useEffect(() => {
+    setOrderedModules(getModuleConfigs(parameters));
+  }, [parameters.modules]);
+
+  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor));
+
+  const handleModuleToggle = (id: string) => {
+    setOrderedModules((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)),
+    );
+    syncModulesToParams(
+      orderedModules.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)),
+    );
+  };
+
+  const handleModuleDragEnd = (event: any) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = orderedModules.findIndex((m) => m.id === active.id);
+    const newIdx = orderedModules.findIndex((m) => m.id === over.id);
+    const reordered = arrayMove(orderedModules, oldIdx, newIdx);
+    setOrderedModules(reordered);
+    syncModulesToParams(reordered);
+  };
+
+  const syncModulesToParams = (mods: typeof orderedModules) => {
+    const moduleParams: ModuleConfig[] = mods.map((m, i) => ({
+      id: m.id,
+      enabled: m.enabled,
+      order: i,
+    }));
+    setParameters((prev) => ({ ...prev, modules: moduleParams }));
+  };
 
   const validationErrors = (): boolean => {
     const newErrors: Record<string, string> = {};
-    Validator.isWithinRange(
-      newErrors,
-      parameters.needsUpdateMonths,
-      ConfigField.NeedsUpdateMonths,
-      'Needs update months',
-      NEEDS_UPDATE_MONTHS_RANGE
-    );
-    Validator.isWithinRange(
-      newErrors,
-      parameters.recentlyPublishedDays,
-      ConfigField.RecentlyPublishedDays,
-      'Recently published days',
-      RECENTLY_PUBLISHED_DAYS_RANGE
-    );
-    Validator.isWithinRange(
-      newErrors,
-      parameters.timeToPublishDays,
-      ConfigField.TimeToPublishDays,
-      'Time to publish days',
-      TIME_TO_PUBLISH_DAYS_RANGE
-    );
-
+    Validator.isWithinRange(newErrors, parameters.needsUpdateMonths, ConfigField.NeedsUpdateMonths, 'Needs update months', NEEDS_UPDATE_MONTHS_RANGE);
+    Validator.isWithinRange(newErrors, parameters.recentlyPublishedDays, ConfigField.RecentlyPublishedDays, 'Recently published days', RECENTLY_PUBLISHED_DAYS_RANGE);
+    Validator.isWithinRange(newErrors, parameters.timeToPublishDays, ConfigField.TimeToPublishDays, 'Time to publish days', TIME_TO_PUBLISH_DAYS_RANGE);
     setErrors(newErrors);
     return Validator.hasErrors(newErrors);
   };
 
   const onConfigure = useCallback(async () => {
     const currentState = await sdk.app.getCurrentState();
-
-    const hasErrors = validationErrors();
-
-    if (hasErrors) {
-      sdk.notifier.error('Please fill in all required fields with valid values before saving.');
+    if (validationErrors()) {
+      sdk.notifier.error('Please fix validation errors before saving.');
       return false;
     }
-
     return {
       parameters: {
         ...parameters,
@@ -97,165 +391,93 @@ const ConfigScreen = () => {
 
   useEffect(() => {
     (async () => {
-      const currentParameters = await sdk.app.getParameters();
-
+      const currentParameters = (await sdk.app.getParameters()) as AppInstallationParameters | null;
       if (currentParameters) {
         setParameters(currentParameters);
+        if (currentParameters.defaultContentTypes?.length) {
+          // ContentTypeMultiSelect will handle loading from initialSelectedIds
+        }
       }
-
       sdk.app.setReady();
     })();
   }, [sdk]);
 
   const handleIntegerChange = (field: ConfigField) => (value: number | undefined) => {
-    setParameters((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-
-    if (errors[field]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
+    setParameters((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors((prev) => { const e = { ...prev }; delete e[field]; return e; });
   };
 
-  const handleShowUpcomingReleasesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = e.target.checked;
-
-    setParameters((prev) => ({
-      ...prev,
-      showUpcomingReleases: checked,
-    }));
-  };
-
-  const handleCreatorViewSettingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { value } = e.target;
-
-    setParameters((prev) => ({
-      ...prev,
-      defaultCreatorViewSetting: value as CreatorViewSetting,
-    }));
-  };
+  const SECTIONS = [
+    { id: 'analytics', label: 'Analytics' },
+    { id: 'modules', label: 'Modules' },
+    { id: 'theme', label: 'Theme' },
+    { id: 'cards', label: 'Custom Cards' },
+  ] as const;
 
   return (
     <Flex flexDirection="column" fullWidth>
       <Flex flexDirection="column" style={styles.container}>
-        <Form>
-          <Heading marginBottom="spacingM">Set up Content Insights</Heading>
-          <Paragraph marginBottom="spacingL">
-            Get insight into your content lifecycle by tracking production volume, creation time,
-            and when content needs updates with Content Insights.
-          </Paragraph>
+        <Heading marginBottom="spacingS">Content Health Dashboard</Heading>
+        <Paragraph marginBottom="spacingL">
+          Configure production analytics, enable/reorder modules, theme the dashboard, and author custom content cards.
+        </Paragraph>
 
-          <Heading as="h3" marginBottom="spacingM" marginTop="spacingL">
-            Configure app
-          </Heading>
-          <Text as="p" marginBottom="spacingL" fontSize="fontSizeM">
-            Configure the time periods and display options the app uses to calculate and present
-            your content metrics.
-          </Text>
+        {/* Section nav */}
+        <Flex gap="spacingXs" marginBottom="spacingL">
+          {SECTIONS.map((s) => (
+            <Button
+              key={s.id}
+              variant={activeSection === s.id ? 'primary' : 'secondary'}
+              size="small"
+              onClick={() => setActiveSection(s.id)}
+            >
+              {s.label}
+            </Button>
+          ))}
+        </Flex>
 
-          <>
+        <hr style={{ border: "none", borderTop: "1px solid #e5e9ed", margin: "24px 0" }} />
+
+        {/* ── Analytics ── */}
+        {activeSection === 'analytics' && (
+          <Form>
+            <Heading as="h3" marginBottom="spacingM">Analytics settings</Heading>
+            <Text as="p" marginBottom="spacingL" fontSize="fontSizeM">
+              Configure time periods for the production-metrics module.
+            </Text>
+
             <FormControl marginBottom="spacingL" isRequired isInvalid={!!errors.needsUpdateMonths}>
-              <FormControl.Label>
-                Content &quot;Needs update&quot; time threshold (months)
-              </FormControl.Label>
-              <TextInputInteger
-                id="needs-update-months"
-                name="needs-update-months"
-                value={parameters.needsUpdateMonths}
-                onChange={handleIntegerChange(ConfigField.NeedsUpdateMonths)}
-              />
-              {errors.needsUpdateMonths && (
-                <FormControl.ValidationMessage>
-                  {errors.needsUpdateMonths}
-                </FormControl.ValidationMessage>
-              )}
-              <FormControl.HelpText>
-                Content will be marked as &quot;Needs update&quot; when it hasn&apos;t been updated
-                for this amount of time. Range: {NEEDS_UPDATE_MONTHS_RANGE.min}-
-                {NEEDS_UPDATE_MONTHS_RANGE.max} months.
-              </FormControl.HelpText>
+              <FormControl.Label>Content &quot;Needs update&quot; threshold (months)</FormControl.Label>
+              <TextInputInteger id="needs-update-months" name="needs-update-months" value={parameters.needsUpdateMonths} onChange={handleIntegerChange(ConfigField.NeedsUpdateMonths)} />
+              {errors.needsUpdateMonths && <FormControl.ValidationMessage>{errors.needsUpdateMonths}</FormControl.ValidationMessage>}
+              <FormControl.HelpText>Range: {NEEDS_UPDATE_MONTHS_RANGE.min}–{NEEDS_UPDATE_MONTHS_RANGE.max} months.</FormControl.HelpText>
             </FormControl>
 
-            <FormControl
-              marginBottom="spacingL"
-              isRequired
-              isInvalid={!!errors.recentlyPublishedDays}>
-              <FormControl.Label>
-                &quot;Recently published&quot; time period (days)
-              </FormControl.Label>
-              <TextInputInteger
-                id="recently-published-days"
-                name="recently-published-days"
-                value={parameters.recentlyPublishedDays}
-                onChange={handleIntegerChange(ConfigField.RecentlyPublishedDays)}
-              />
-              {errors.recentlyPublishedDays && (
-                <FormControl.ValidationMessage>
-                  {errors.recentlyPublishedDays}
-                </FormControl.ValidationMessage>
-              )}
-              <FormControl.HelpText>
-                Content will be considered &quot;Recently published&quot; if it was published within
-                this time period. Range: {RECENTLY_PUBLISHED_DAYS_RANGE.min}-
-                {RECENTLY_PUBLISHED_DAYS_RANGE.max} days.
-              </FormControl.HelpText>
+            <FormControl marginBottom="spacingL" isRequired isInvalid={!!errors.recentlyPublishedDays}>
+              <FormControl.Label>&quot;Recently published&quot; period (days)</FormControl.Label>
+              <TextInputInteger id="recently-published-days" name="recently-published-days" value={parameters.recentlyPublishedDays} onChange={handleIntegerChange(ConfigField.RecentlyPublishedDays)} />
+              {errors.recentlyPublishedDays && <FormControl.ValidationMessage>{errors.recentlyPublishedDays}</FormControl.ValidationMessage>}
+              <FormControl.HelpText>Range: {RECENTLY_PUBLISHED_DAYS_RANGE.min}–{RECENTLY_PUBLISHED_DAYS_RANGE.max} days.</FormControl.HelpText>
             </FormControl>
 
             <FormControl marginBottom="spacingL" isRequired isInvalid={!!errors.timeToPublishDays}>
-              <FormControl.Label>Time to publish threshold (days)</FormControl.Label>
-              <TextInputInteger
-                id="time-to-publish-days"
-                name="time-to-publish-days"
-                value={parameters.timeToPublishDays}
-                onChange={handleIntegerChange(ConfigField.TimeToPublishDays)}
-              />
-              {errors.timeToPublishDays && (
-                <FormControl.ValidationMessage>
-                  {errors.timeToPublishDays}
-                </FormControl.ValidationMessage>
-              )}
-              <FormControl.HelpText>
-                The time period to calculate average time to publish metrics. Range:{' '}
-                {TIME_TO_PUBLISH_DAYS_RANGE.min}-{TIME_TO_PUBLISH_DAYS_RANGE.max} days.
-              </FormControl.HelpText>
+              <FormControl.Label>Time-to-publish threshold (days)</FormControl.Label>
+              <TextInputInteger id="time-to-publish-days" name="time-to-publish-days" value={parameters.timeToPublishDays} onChange={handleIntegerChange(ConfigField.TimeToPublishDays)} />
+              {errors.timeToPublishDays && <FormControl.ValidationMessage>{errors.timeToPublishDays}</FormControl.ValidationMessage>}
+              <FormControl.HelpText>Range: {TIME_TO_PUBLISH_DAYS_RANGE.min}–{TIME_TO_PUBLISH_DAYS_RANGE.max} days.</FormControl.HelpText>
             </FormControl>
 
             <FormControl marginBottom="spacingL">
-              <Switch
-                id="show-upcoming-releases"
-                name="show-upcoming-releases"
-                isChecked={parameters.showUpcomingReleases ?? false}
-                onChange={handleShowUpcomingReleasesChange}>
-                Show &quot;Upcoming release&quot; section
+              <Switch id="show-upcoming-releases" name="show-upcoming-releases" isChecked={parameters.showUpcomingReleases ?? false} onChange={(e) => setParameters((p) => ({ ...p, showUpcomingReleases: e.target.checked }))}>
+                Show upcoming releases section
               </Switch>
-              <FormControl.HelpText>
-                Toggle visibility of the upcoming releases section on the dashboard.
-              </FormControl.HelpText>
             </FormControl>
 
-            <Heading as="h3" marginBottom="spacingM" marginTop="spacingL">
-              Configure content publishing trends
-            </Heading>
-            <Text as="p" marginBottom="spacingL" fontSize="fontSizeM">
-              Configure the default content types and creator view for the content publishing trends
-              charts.
-            </Text>
-
-            <Text as="p" marginBottom="spacingS" fontSize="fontSizeM">
-              Select the default content types to display in the “New entries” and “By content type”
-              charts.
-            </Text>
+            <Heading as="h3" marginBottom="spacingM" marginTop="spacingL">Publishing trends</Heading>
             <FormControl marginBottom="spacingL">
               <Flex alignItems="center" gap="spacing2Xs">
-                <FormControl.Label>Select content types</FormControl.Label>
-                <Tooltip content="You can select up to five at a time.">
-                  <InfoIcon size="tiny" />
-                </Tooltip>
+                <FormControl.Label>Default content types</FormControl.Label>
+                <Tooltip content="Select up to 5."><InfoIcon size="tiny" /></Tooltip>
               </Flex>
               <ContentTypeMultiSelect
                 selectedContentTypes={selectedContentTypes}
@@ -266,56 +488,77 @@ const ConfigScreen = () => {
               />
             </FormControl>
 
-            <Text as="p" marginBottom="spacingS" fontSize="fontSizeM">
-              Select the default setting for the by creator view of the content publishing trends.
-            </Text>
             <FormControl marginBottom="spacingL">
-              <FormControl.Label>Select setting</FormControl.Label>
-              <Select
-                id="default-creator-view-setting"
-                name="default-creator-view-setting"
-                value={parameters.defaultCreatorViewSetting ?? ''}
-                onChange={handleCreatorViewSettingChange}>
-                <Select.Option value="" isDisabled>
-                  Select one
-                </Select.Option>
-                {CREATOR_VIEW_OPTIONS.map((option) => (
-                  <Select.Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Select.Option>
+              <FormControl.Label>Default creator view</FormControl.Label>
+              <Select id="creator-view" name="creator-view" value={parameters.defaultCreatorViewSetting ?? ''} onChange={(e) => setParameters((p) => ({ ...p, defaultCreatorViewSetting: e.target.value as CreatorViewSetting }))}>
+                <Select.Option value="" isDisabled>Select one</Select.Option>
+                {CREATOR_VIEW_OPTIONS.map((o) => (
+                  <Select.Option key={o.value} value={o.value}>{o.label}</Select.Option>
                 ))}
               </Select>
             </FormControl>
-          </>
-        </Form>
-        <Flex flexDirection="column">
-          <Heading as="h3" marginBottom="spacingM" marginTop="spacingL">
-            Set up
-          </Heading>
-          <Flex flexDirection="row" gap="spacing2Xl" marginBottom="spacing2Xl">
-            <Flex flexDirection="column" style={styles.setupColumn} justifyContent="space-between">
-              <Paragraph>
-                To make this dashboard your default home page, select the gear icon in the top right
-                corner of your Contentful navigation.
-              </Paragraph>
-              <Image
-                alt="An image showing Contentful settings dropdown"
-                height="257px"
-                width="390px"
-                style={styles.image}
-                src={gearImage}
-              />
-            </Flex>
-            <Flex flexDirection="column" style={styles.setupColumn} justifyContent="space-between">
-              <Paragraph>Select &quot;Content Insights&quot; and click save.</Paragraph>
-              <Image
-                alt="An image showing Contentful Home location appearance settings"
-                height="257px"
-                width="400px"
-                style={styles.image}
-                src={appearanceImage}
-              />
-            </Flex>
+          </Form>
+        )}
+
+        {/* ── Modules ── */}
+        {activeSection === 'modules' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">Module manager</Heading>
+            <Text fontColor="gray600" marginBottom="spacingM">
+              Enable, disable, and drag to reorder tabs in the dashboard. Changes take effect after saving.
+            </Text>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleModuleDragEnd}>
+              <SortableContext items={orderedModules.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+                <Stack flexDirection="column" spacing="spacingXs">
+                  {orderedModules.map((mod) => (
+                    <SortableModuleRow key={mod.id} mod={mod} onToggle={handleModuleToggle} />
+                  ))}
+                </Stack>
+              </SortableContext>
+            </DndContext>
+          </Flex>
+        )}
+
+        {/* ── Theme ── */}
+        {activeSection === 'theme' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">Theme</Heading>
+            <Text fontColor="gray600" marginBottom="spacingM">
+              Customise the dashboard title, accent color, background, and brand logo. Great for white-labelling demos for specific clients.
+            </Text>
+            <ThemeEditor
+              theme={parameters.theme ?? DEFAULT_THEME}
+              onChange={(t) => setParameters((p) => ({ ...p, theme: t }))}
+              sdk={sdk}
+            />
+          </Flex>
+        )}
+
+        {/* ── Custom cards ── */}
+        {activeSection === 'cards' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">Custom content cards</Heading>
+            <Text fontColor="gray600" marginBottom="spacingM">
+              Author free-form cards that appear in the &quot;Custom Content&quot; module. Each card has a title, bullet points, and an optional link.
+            </Text>
+            <CustomCardEditor
+              cards={parameters.customCards ?? []}
+              onChange={(cards) => setParameters((p) => ({ ...p, customCards: cards }))}
+            />
+          </Flex>
+        )}
+
+        {/* Setup guide */}
+        <hr style={{ border: "none", borderTop: "1px solid #e5e9ed", margin: "24px 0" }} />
+        <Heading as="h3" marginBottom="spacingM">Set as home page</Heading>
+        <Flex flexDirection="row" gap="spacing2Xl" marginBottom="spacing2Xl">
+          <Flex flexDirection="column" style={styles.setupColumn} justifyContent="space-between">
+            <Paragraph>Select the gear icon in the Contentful navigation to open Settings.</Paragraph>
+            <Image alt="Contentful settings dropdown" height="257px" width="390px" style={styles.image} src={gearImage} />
+          </Flex>
+          <Flex flexDirection="column" style={styles.setupColumn} justifyContent="space-between">
+            <Paragraph>Select &quot;Content Health Dashboard&quot; and click Save.</Paragraph>
+            <Image alt="Home page appearance settings" height="257px" width="400px" style={styles.image} src={appearanceImage} />
           </Flex>
         </Flex>
       </Flex>
