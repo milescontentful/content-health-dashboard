@@ -20,6 +20,7 @@ import { PlusIcon, TrashSimpleIcon, MagnifyingGlassIcon, DownloadSimpleIcon } fr
 import { useSearchEntries } from '../../hooks/useSearchEntries';
 import { setFieldMetaCache } from '../../utils/queryBuilder';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
+import { openEntryInNewTab } from '../../lib/openInNewTab';
 import type { ModuleProps, SearchQuery, SearchCondition } from '../types';
 
 const OPERATORS = [
@@ -219,7 +220,7 @@ export function SearchBuilder() {
                           <Text
                             as="span"
                             style={{ cursor: 'pointer', color: '#1773EB', textDecoration: 'underline' }}
-                            onClick={() => (sdk as any).navigator?.openEntry(entry.sys.id, { slideIn: true })}
+                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, entry.sys.id)}
                           >
                             {title || entry.sys.id}
                           </Text>
