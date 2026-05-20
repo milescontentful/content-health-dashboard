@@ -419,14 +419,14 @@ const ConfigScreen = () => {
 
   const SECTIONS = [
     { id: 'analytics', label: 'Analytics' },
+    { id: 'reference-risk', label: 'Reference Risk' },
     { id: 'modules', label: 'Modules' },
-    { id: 'theme', label: 'Theme' },
-    { id: 'cards', label: 'Custom Cards' },
     { id: 'ai', label: 'App Functions' },
     { id: 'seo-geo', label: 'SEO / GEO' },
     { id: 'p13n', label: 'Personalization' },
     { id: 'contentful-analytics', label: 'Contentful Analytics' },
-    { id: 'reference-risk', label: 'Reference Risk' },
+    { id: 'cards', label: 'Custom Cards' },
+    { id: 'theme', label: 'Theme' },
   ] as const;
 
   return (
