@@ -39,7 +39,7 @@
     "add-locations": "contentful-app-scripts add-locations",
     "upload": "contentful-app-scripts upload --bundle-dir ./build",
     "upload-ci": "contentful-app-scripts upload --ci --bundle-dir ./build  --organization-id $CONTENTFUL_ORG_ID --definition-id $CONTENTFUL_APP_DEF_ID --token $CONTENTFUL_ACCESS_TOKEN",
-    "upsert-actions": "contentful-app-scripts upsert-app-actions",
+    "upsert-actions": "contentful-app-scripts upsert-actions",
     "generate-entries": "tsx src/scripts/generateEntries.ts",
     "delete-entries": "tsx src/scripts/deleteEntries.ts"
   },

@@ -29,9 +29,8 @@ import {
 } from '@contentful/f36-components';
 import { DownloadSimpleIcon, OpenAiLogoIcon, CheckCircleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
-import { invokeAppActionAndWait, invokeAiActionAndWait, isAiActionId } from '../../lib/aiActions';
+import { invokeAppActionAndWait } from '../../lib/aiActions';
 import { APP_ACTION_IDS } from '../../lib/appActions';
-// isAiActionId used below for content audit dual-path routing
 import type { ModuleProps } from '../types';
 
 interface CompletenessIssue {
@@ -205,23 +204,19 @@ export function AiAudit({ installationParams }: ModuleProps) {
       try {
         let payload: { score: number; summary: string; suggestions: string[]; toneScore?: number; toneFeedback?: string };
 
-        if (isAiActionId(actionId)) {
-          const raw = await invokeAiActionAndWait(
-            sdk.cma,
-            spaceId,
-            environmentId,
-            actionId,
-            { entryId: entry.sys.id, targetLocale: defaultLocale },
-          );
-          payload = typeof raw === 'string' ? JSON.parse(raw) : (raw as typeof payload);
-        } else {
-          payload = await invokeAppActionAndWait(
-            sdk.cma,
-            appId,
-            APP_ACTION_IDS.gradeContent,
-            { entryId: entry.sys.id, title, body: body.slice(0, 3000), contentType: contentTypeId, brandVoice: brandVoice || undefined },
-          );
-        }
+        payload = await invokeAppActionAndWait(
+          sdk.cma,
+          appId,
+          APP_ACTION_IDS.gradeContent,
+          {
+            entryId: entry.sys.id,
+            title,
+            body: body.slice(0, 3000),
+            contentType: contentTypeId,
+            brandVoice: brandVoice || undefined,
+            aiActionId: actionId || undefined,
+          },
+        );
 
         allResults.push({
           entryId: entry.sys.id,

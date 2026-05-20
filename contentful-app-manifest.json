@@ -153,6 +153,18 @@
           "name": "Content Type",
           "type": "Symbol",
           "required": true
+        },
+        {
+          "id": "aiActionId",
+          "name": "AI Action ID",
+          "type": "Symbol",
+          "required": false
+        },
+        {
+          "id": "brandVoice",
+          "name": "Brand Voice",
+          "type": "Symbol",
+          "required": false
         }
       ]
     },

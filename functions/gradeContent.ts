@@ -21,6 +21,7 @@ import {
   FunctionTypeEnum,
   FunctionEventContext,
 } from '@contentful/node-apps-toolkit';
+import { proxyAiAction } from './_aiActionProxy';
 
 interface GradeContentParams {
   entryId: string;
@@ -28,6 +29,7 @@ interface GradeContentParams {
   body: string;
   contentType: string;
   brandVoice?: string;
+  aiActionId?: string;
 }
 
 interface GradeContentResponse {
@@ -56,15 +58,33 @@ export const handler: FunctionEventHandler<FunctionTypeEnum.AppActionCall> = asy
 ) => {
   try {
   const params = event.body as unknown as GradeContentParams;
-  const { title = '', body = '', contentType = '', brandVoice = '' } = params;
+  const { title = '', body = '', contentType = '', brandVoice = '', aiActionId = '' } = params;
+
+  // Path A: proxy a Contentful AI Action server-side (no OpenAI key needed)
+  if (aiActionId) {
+    const brandVoiceNote = brandVoice ? `\nBrand voice: ${brandVoice}` : '';
+    const entryText = `Content type: ${contentType}\nTitle: ${title}${brandVoiceNote}\nBody:\n${body.slice(0, 3000)}`;
+    const raw = await proxyAiAction(context, aiActionId, { text: entryText });
+
+    let parsed: Partial<GradeContentResponse & { completeness?: unknown; readability?: unknown; seoReadiness?: unknown }> = {};
+    try { parsed = JSON.parse(raw); } catch { /* raw text fallback */ }
+
+    return {
+      score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, parsed.score)) : 0,
+      summary: parsed.summary ?? raw.slice(0, 300),
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 6) : [],
+      toneScore: undefined,
+      toneFeedback: undefined,
+    } satisfies GradeContentResponse;
+  }
 
   const apiKey: string = (context.appInstallationParameters as any)?.openAiApiKey ?? '';
 
   if (!apiKey) {
     return {
       score: 0,
-      summary: 'OpenAI API key not configured. Add it in Config Screen → App Functions.',
-      suggestions: ['Configure your OpenAI API key in the app Config Screen to enable AI grading.'],
+      summary: 'No AI configured. Enter a Content Audit AI Action ID or OpenAI key in Config Screen → App Functions.',
+      suggestions: ['Add the Content Quality Audit AI Action ID in Config Screen → App Functions → Content Audit.'],
       toneScore: 100,
       toneFeedback: '',
     } satisfies GradeContentResponse;

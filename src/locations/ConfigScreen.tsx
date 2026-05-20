@@ -329,7 +329,7 @@ const ConfigScreen = () => {
   const [selectedTopLevelCTs, setSelectedTopLevelCTs] = useState<ContentType[]>([]);
   const [selectedSeoCTs, setSelectedSeoCTs] = useState<ContentType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'p13n' | 'contentful-analytics' | 'reference-risk'>('analytics');
+  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'seo-geo' | 'p13n' | 'contentful-analytics' | 'reference-risk'>('analytics');
 
   // Module configs derived from params
   const moduleConfigs = getModuleConfigs(parameters);
@@ -393,7 +393,7 @@ const ConfigScreen = () => {
       },
       targetState: currentState,
     };
-  }, [parameters, selectedContentTypes, sdk]);
+  }, [parameters, selectedContentTypes, selectedTopLevelCTs, selectedSeoCTs, sdk]);
 
   useEffect(() => {
     sdk.app.onConfigure(() => onConfigure());
@@ -423,6 +423,7 @@ const ConfigScreen = () => {
     { id: 'theme', label: 'Theme' },
     { id: 'cards', label: 'Custom Cards' },
     { id: 'ai', label: 'App Functions' },
+    { id: 'seo-geo', label: 'SEO / GEO' },
     { id: 'p13n', label: 'Personalization' },
     { id: 'contentful-analytics', label: 'Contentful Analytics' },
     { id: 'reference-risk', label: 'Reference Risk' },
@@ -679,25 +680,18 @@ const ConfigScreen = () => {
               )}
             </FormControl>
 
-            <FormControl>
-              <FormControl.Label>SEO / GEO Audit — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
-              <TextInput
-                value={(parameters as any).seoAuditActionId ?? ''}
-                onChange={(e) => setParameters((p) => ({ ...p, seoAuditActionId: e.target.value.trim() }))}
-                placeholder="seo-audit"
-              />
-              <FormControl.HelpText>
-                Linked to the <code>seoAudit</code> function · enriches heuristic SEO/GEO scores with LLM analysis.
-              </FormControl.HelpText>
-            </FormControl>
+          </Flex>
+        )}
 
-            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '4px 0' }} />
-            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">SEO / GEO — Page Content Types</Text>
-            <Text fontColor="gray600" fontSize="fontSizeS">
-              Select which content types represent pages (blog posts, landing pages, product pages, etc.).
-              The SEO / GEO tab will only show these types in its content type picker.
-              Leave empty to show all content types.
+        {/* ── SEO / GEO ── */}
+        {activeSection === 'seo-geo' && (
+          <Flex flexDirection="column" gap="spacingM">
+            <Heading as="h3" marginBottom="spacingXs">SEO / GEO</Heading>
+            <Text fontColor="gray600" marginBottom="spacingS">
+              Configure which content types appear in the SEO / GEO audit tab, and optionally wire up the
+              LLM-powered scoring App Function for AI-enhanced recommendations.
             </Text>
+
             <FormControl>
               <FormControl.Label>
                 Page content types <Badge variant="secondary">Optional</Badge>
@@ -709,7 +703,22 @@ const ConfigScreen = () => {
                 initialSelectedIds={parameters.seoPageContentTypes}
               />
               <FormControl.HelpText>
-                Only these content types will appear in the SEO / GEO audit content type picker.
+                Select content types that represent pages (blog posts, landing pages, product pages, etc.).
+                Only these types will appear in the SEO / GEO audit content type picker.
+                Leave empty to show all content types.
+              </FormControl.HelpText>
+            </FormControl>
+
+            <FormControl>
+              <FormControl.Label>SEO / GEO Audit — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                value={(parameters as any).seoAuditActionId ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, seoAuditActionId: e.target.value.trim() }))}
+                placeholder="seo-audit"
+              />
+              <FormControl.HelpText>
+                Linked to the <code>seoAudit</code> App Function · enriches heuristic SEO/GEO scores with LLM analysis
+                and generates AI-rewritten meta title and description suggestions.
               </FormControl.HelpText>
             </FormControl>
 

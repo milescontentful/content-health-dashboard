@@ -227,43 +227,42 @@ export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
   return (
     <Flex flexDirection="column" gap="spacingM">
       {/* Header row */}
-      <Flex justifyContent="space-between" alignItems="flex-start">
+      <Flex justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap="spacingM">
         <Flex flexDirection="column" gap="spacingXs">
           <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">SEO / GEO Audit</Text>
           <Text fontColor="gray600" fontSize="fontSizeS">
             Score published entries across classic SEO, Answer Engine (AEO), and Generative Engine (GEO) signals.
           </Text>
         </Flex>
-        {auditRows && auditRows.length > 0 && (
-          <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={handleExport}>
-            Export CSV
-          </Button>
-        )}
+        <Flex gap="spacingS" alignItems="flex-end">
+          <FormControl style={{ marginBottom: 0 }}>
+            <FormControl.Label>Content type</FormControl.Label>
+            <Select
+              value={contentTypeId}
+              onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
+              style={{ minWidth: 220 }}
+            >
+              <Select.Option value="">Select a content type…</Select.Option>
+              {filteredCtData?.map((ct) => (
+                <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
+              ))}
+            </Select>
+          </FormControl>
+          {auditRows && auditRows.length > 0 && (
+            <Button variant="secondary" size="small" startIcon={<DownloadSimpleIcon />} onClick={handleExport}>
+              Export CSV
+            </Button>
+          )}
+        </Flex>
       </Flex>
-
-      {/* Content type picker */}
-      <Flex gap="spacingM" alignItems="flex-end" flexWrap="wrap">
-        <FormControl style={{ marginBottom: 0, minWidth: 220 }}>
-          <FormControl.Label>Content type</FormControl.Label>
-          <Select
-            value={contentTypeId}
-            onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
-          >
-            <Select.Option value="">Select a content type…</Select.Option>
-            {filteredCtData?.map((ct) => (
-              <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
-            ))}
-          </Select>
-        </FormControl>
-        {seoPageContentTypes.length > 0 && (
-          <Note variant="neutral" style={{ flex: 1, minWidth: 200 }}>
-            <Text fontSize="fontSizeS">
-              Showing {seoPageContentTypes.length} configured page type{seoPageContentTypes.length !== 1 ? 's' : ''}.
-              Change selection in <strong>Config Screen → App Functions → SEO / GEO</strong>.
-            </Text>
-          </Note>
-        )}
-      </Flex>
+      {seoPageContentTypes.length > 0 && (
+        <Note variant="neutral">
+          <Text fontSize="fontSizeS">
+            Filtered to {seoPageContentTypes.length} configured page type{seoPageContentTypes.length !== 1 ? 's' : ''}.
+            Change in <strong>Config Screen → SEO / GEO</strong>.
+          </Text>
+        </Note>
+      )}
 
       <ScoringRubric />
 
