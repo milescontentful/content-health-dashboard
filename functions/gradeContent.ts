@@ -66,13 +66,44 @@ export const handler: FunctionEventHandler<FunctionTypeEnum.AppActionCall> = asy
     const entryText = `Content type: ${contentType}\nTitle: ${title}${brandVoiceNote}\nBody:\n${body.slice(0, 3000)}`;
     const raw = await proxyAiAction(context, aiActionId, { text: entryText });
 
-    let parsed: Partial<GradeContentResponse & { completeness?: unknown; readability?: unknown; seoReadiness?: unknown }> = {};
-    try { parsed = JSON.parse(raw); } catch { /* raw text fallback */ }
+    // Try JSON first (legacy), then parse the plain-text format
+    let score = 0;
+    let summary = '';
+    const suggestions: string[] = [];
+
+    let jsonParsed = false;
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.score === 'number') {
+        score = Math.min(100, Math.max(0, parsed.score));
+        summary = parsed.summary ?? '';
+        if (Array.isArray(parsed.suggestions)) suggestions.push(...parsed.suggestions.slice(0, 6));
+        jsonParsed = true;
+      }
+    } catch { /* fall through to plain text parsing */ }
+
+    if (!jsonParsed) {
+      // Parse the structured plain-text format:
+      // "QUALITY SCORE\n75 — Good\n\nSUMMARY\n...\n\nTOP SUGGESTIONS\n1. ...\n2. ..."
+      const scoreMatch = raw.match(/QUALITY SCORE\s*\n\s*(\d+)/i);
+      if (scoreMatch) score = Math.min(100, Math.max(0, parseInt(scoreMatch[1], 10)));
+
+      const summaryMatch = raw.match(/SUMMARY\s*\n([\s\S]*?)(?=\nCOMPLETENESS|\nREADABILITY|\nSEO READINESS|\nTOP SUGGESTIONS|$)/i);
+      if (summaryMatch) summary = summaryMatch[1].trim();
+
+      const suggestionsMatch = raw.match(/TOP SUGGESTIONS\s*\n([\s\S]*?)(?=\n[A-Z ]+\n|$)/i);
+      if (suggestionsMatch) {
+        const lines = suggestionsMatch[1].split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
+        suggestions.push(...lines.slice(0, 6));
+      }
+
+      if (!summary) summary = raw.slice(0, 400);
+    }
 
     return {
-      score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, parsed.score)) : 0,
-      summary: parsed.summary ?? raw.slice(0, 300),
-      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 6) : [],
+      score,
+      summary,
+      suggestions,
       toneScore: undefined,
       toneFeedback: undefined,
     } satisfies GradeContentResponse;
