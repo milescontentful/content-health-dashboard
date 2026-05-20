@@ -40,19 +40,39 @@ The Content Health Dashboard uses two **Contentful AI Actions** for its AI-power
 ### Prompt template
 
 ```
-You are a senior content strategist and editor. Audit the following entry and return ONLY a JSON object (no markdown fences, no explanation outside the JSON) with these exact fields:
+You are a senior content strategist and editor.
 
-- score: integer 0–100 (overall content quality)
-- summary: 2–3 sentence plain-text assessment of strengths and weaknesses
-- suggestions: array of 4–6 short, specific, actionable improvements ordered by impact
-- completeness: object with keys "missingRequired" (array of field names that appear empty or very short) and "missingOptional" (array of field names that are empty but not required)
-- readability: object with keys "score" (integer 0–100) and "feedback" (one sentence)
-- seoReadiness: object with keys "score" (integer 0–100) and "feedback" (one sentence)
+Audit the entry below and respond in this exact plain-text format (no JSON, no markdown fences):
+
+QUALITY SCORE
+[0-100] — [one-word band: Excellent / Good / Needs work / Poor]
+
+SUMMARY
+[2-3 sentences: key strengths and weaknesses]
+
+COMPLETENESS
+Missing required fields: [comma-separated list, or "None"]
+Missing optional fields: [comma-separated list, or "None"]
+
+READABILITY
+Score: [0-100]
+[One sentence of feedback]
+
+SEO READINESS
+Score: [0-100]
+[One sentence of feedback]
+
+TOP SUGGESTIONS
+1. [Most impactful improvement]
+2. [Second improvement]
+3. [Third improvement]
+4. [Fourth improvement]
+5. [Fifth improvement]
 
 Scoring guide:
-- 75–100: Clear, complete, well-structured, good length, strong messaging
-- 50–74: Usable but missing key elements (descriptions, CTAs, sufficient length)
-- 0–49: Thin, unclear, or largely incomplete
+75-100: Clear, complete, well-structured, good length, strong messaging
+50-74: Usable but missing key elements (descriptions, CTAs, length)
+0-49: Thin, unclear, or largely incomplete
 
 Entry to audit:
 {{var.entryContent}}
@@ -89,29 +109,35 @@ After creating the action, copy its ID and paste it into:
 ### Prompt template
 
 ```
-You are a senior content strategist specialising in SEO, AEO (Answer Engine Optimisation for featured snippets and voice search), and GEO (Generative Engine Optimisation — getting cited by AI systems like ChatGPT, Perplexity, and Claude).
+You are a senior content strategist specialising in SEO, AEO (Answer Engine Optimisation), and GEO (Generative Engine Optimisation — getting cited by AI systems like ChatGPT, Perplexity, and Claude).
 
-Audit the following page content and return ONLY a JSON object (no markdown fences, no explanation outside the JSON) with these exact fields:
+Audit the page content below and respond in this exact plain-text format (no JSON, no markdown fences):
 
-- seoScore: integer 0–100 (classic search engine signals)
-- aeoScore: integer 0–100 (answer engine / featured snippet readiness)
-- geoScore: integer 0–100 (generative AI citation readiness)
-- composite: integer 0–100 (weighted: SEO 40%, AEO 30%, GEO 30%)
-- summary: 2–3 sentence overall assessment
-- suggestions: array of 4–6 specific, actionable improvements sorted by impact
-- metaTitleSuggestion: a rewritten meta/page title (50–60 chars) optimised for click-through and AI citations — empty string if the existing title is already strong
-- metaDescriptionSuggestion: a rewritten meta description (140–155 chars) optimised for featured snippets and AI answer boxes — empty string if the existing one is already strong
+SCORES
+SEO: [0-100] | AEO: [0-100] | GEO: [0-100] | Composite: [0-100]
 
-Scoring bands:
-- 75–100: Strong
-- 50–74: Needs improvement
-- 0–49: Poor
+SUMMARY
+[2-3 sentences: overall strengths and weaknesses]
 
-SEO checks: title length, meta description, slug/URL, content length ≥300 chars, ≥4 sentences
-AEO checks: question-style phrases, substantive opening ≥60 chars, numbered/bullet lists, definitional language, FAQ-style content, content ≥500 chars
-GEO checks: brand/organisation field, structured data terminology, conversational tone, citable statistics, clear subject in first 100 chars, recent year reference, authoritative length ≥800 chars
+TOP RECOMMENDATIONS
+1. [Most impactful fix]
+2. [Second fix]
+3. [Third fix]
+4. [Fourth fix]
+5. [Fifth fix]
 
-Page content to audit:
+META TITLE SUGGESTION
+[Rewritten title 50-60 chars optimised for search and AI citations — or "Existing title is strong" if no change needed]
+
+META DESCRIPTION SUGGESTION
+[Rewritten description 140-155 chars optimised for featured snippets — or "Existing description is strong" if no change needed]
+
+Scoring bands: 75-100 Strong · 50-74 Needs improvement · 0-49 Poor
+SEO checks: title, meta description, slug, content ≥300 chars, ≥4 sentences
+AEO checks: questions, opening ≥60 chars, bullet/numbered lists, definitions, FAQ content, ≥500 chars
+GEO checks: brand/org field, structured data terminology, conversational tone, statistics, clear subject in first 100 chars, recent year reference, ≥800 chars
+
+Page content:
 {{var.pageContent}}
 ```
 
