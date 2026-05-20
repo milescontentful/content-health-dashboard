@@ -566,66 +566,13 @@ const ConfigScreen = () => {
         {/* ── AI / App Functions ── */}
         {activeSection === 'ai' && (
           <Flex flexDirection="column" gap="spacingM">
-            <Heading as="h3" marginBottom="spacingXs">App Functions — AI capabilities</Heading>
-
-            <Note variant="positive">
-              <Flex flexDirection="column" gap="spacingXs">
-                <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">Zero external hosting required</Text>
-                <Text fontSize="fontSizeS">
-                  This app uses <strong>Contentful App Functions</strong> — serverless workloads that run on Contentful&apos;s
-                  own infrastructure. No Vercel, no local server. Build once, upload once, share with every colleague who installs
-                  the app.{' '}
-                  <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/functions/" target="_blank" rel="noopener noreferrer" style={{ color: '#0d7240' }}>
-                    Functions docs →
-                  </a>
-                </Text>
-              </Flex>
-            </Note>
-
-            {/* How it works */}
-            <Card padding="default">
-              <Text fontWeight="fontWeightDemiBold" marginBottom="spacingS" as="p">Four built-in functions</Text>
-              <Flex flexDirection="column" gap="spacingXs">
-                {[
-                  { id: 'grade-content', name: 'Content Audit', desc: 'Grades entry quality — score, summary, suggestions' },
-                  { id: 'translate-fields', name: 'Translation', desc: 'Translates text fields between locales' },
-                  { id: 'generate-alt-text', name: 'Alt Text Generator', desc: 'Generates accessible alt text from image URLs' },
-                  { id: 'seo-audit', name: 'SEO / GEO Audit', desc: 'LLM-enhanced SEO, AEO, and GEO scoring' },
-                ].map((fn) => (
-                  <Flex key={fn.id} gap="spacingS" alignItems="flex-start">
-                    <Badge variant="secondary" style={{ flexShrink: 0, fontFamily: 'monospace', fontSize: 11 }}>{fn.id}</Badge>
-                    <Text fontSize="fontSizeS"><strong>{fn.name}</strong> — {fn.desc}</Text>
-                  </Flex>
-                ))}
-              </Flex>
-            </Card>
-
-            {/* Setup checklist */}
-            <Card padding="default">
-              <Text fontWeight="fontWeightDemiBold" marginBottom="spacingS" as="p">Setup checklist</Text>
-              <Flex flexDirection="column" gap="spacingS">
-                {[
-                  { step: '1', label: 'Build & upload', desc: 'Run npm run build:all then npm run upload to bundle functions into your app.' },
-                  { step: '2', label: 'Create App Actions', desc: <>In the <a href="https://app.contentful.com/deeplink?link=app-definition&tab=actions" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>Actions tab</a> of your app definition, add four actions with IDs: <code>grade-content</code>, <code>translate-fields</code>, <code>generate-alt-text</code>, <code>seo-audit</code>. Set type to <strong>Function invocation</strong> and link each to its function.</> },
-                  { step: '3', label: 'Set OpenAI API key', desc: <>Store your key as a <strong>private installation parameter</strong> named <code>openAiApiKey</code> via the CMA or CLI. It is never exposed to the browser. <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-parameters/#private-installation-parameters" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>Docs →</a></> },
-                  { step: '4', label: 'Enter action IDs below', desc: 'Paste the App Action IDs so the dashboard UI knows which actions to call.' },
-                ].map(({ step, label, desc }) => (
-                  <Flex key={step} gap="spacingS" alignItems="flex-start">
-                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#1773EB', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2 }}>{step}</div>
-                    <Flex flexDirection="column" gap="spacing2Xs">
-                      <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">{label}</Text>
-                      <Text fontSize="fontSizeS" fontColor="gray700">{desc}</Text>
-                    </Flex>
-                  </Flex>
-                ))}
-              </Flex>
-            </Card>
-
-            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '4px 0' }} />
-            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">App Action IDs</Text>
+            <Heading as="h3" marginBottom="spacingXs">App Functions</Heading>
             <Text fontColor="gray600" fontSize="fontSizeS">
-              These tell the dashboard which App Actions to call. The actions must be linked to their corresponding
-              App Functions in the Actions tab of your app definition.
+              Enter your Contentful AI Action IDs below to enable AI-powered features.
+              Need to create an action? See{' '}
+              <a href="https://github.com/milescontentful/content-health-dashboard/blob/main/docs/ai-actions.md" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
+                docs/ai-actions.md →
+              </a>
             </Text>
 
             <FormControl>
