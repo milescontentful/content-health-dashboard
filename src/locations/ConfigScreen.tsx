@@ -888,19 +888,6 @@ const ConfigScreen = () => {
           </Flex>
         )}
 
-        {/* Setup guide */}
-        <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', marginTop: 48, marginBottom: 24, width: '100%' }} />
-        <Heading as="h3" marginBottom="spacingM">Set as home page</Heading>
-        <Flex flexDirection="row" gap="spacing2Xl" marginBottom="spacing2Xl">
-          <Flex flexDirection="column" style={styles.setupColumn} justifyContent="space-between">
-            <Paragraph>Select the gear icon in the Contentful navigation to open Settings.</Paragraph>
-            <Image alt="Contentful settings dropdown" height="257px" width="390px" style={styles.image} src={gearImage} />
-          </Flex>
-          <Flex flexDirection="column" style={styles.setupColumn} justifyContent="space-between">
-            <Paragraph>Select &quot;Content Health Dashboard&quot; and click Save.</Paragraph>
-            <Image alt="Home page appearance settings" height="257px" width="400px" style={styles.image} src={appearanceImage} />
-          </Flex>
-        </Flex>
       </Flex>
     </Flex>
   );
