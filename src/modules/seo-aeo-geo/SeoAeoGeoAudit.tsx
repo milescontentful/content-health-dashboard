@@ -19,6 +19,7 @@ import { CheckCircleIcon, XIcon, DownloadSimpleIcon } from '@contentful/f36-icon
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
 import { scoreSEO, scoreAEO, scoreGEO, type ScoreResult } from './scorer';
+import type { ModuleProps } from '../types';
 
 function SimpleProgress({ value }: { value: number }) {
   return (
@@ -159,18 +160,25 @@ function ScoringRubric() {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function SeoAeoGeoAudit() {
+export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
   const sdk = useSDK();
   const [contentTypeId, setContentTypeId] = useState('');
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+
+  const seoPageContentTypes: string[] = installationParams.seoPageContentTypes ?? [];
 
   const { data: ctData } = useQuery({
     queryKey: ['seo-content-types'],
     queryFn: async () => {
       const res = await (sdk.cma as any).contentType.getMany({ query: { limit: 200 } });
-      return res.items as Array<{ sys: { id: string }; name: string; fields: Array<{ id: string; name: string }> }>;
+      return (res.items as Array<{ sys: { id: string }; name: string; fields: Array<{ id: string; name: string }> }>)
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
   });
+
+  const filteredCtData = seoPageContentTypes.length > 0
+    ? ctData?.filter((ct) => seoPageContentTypes.includes(ct.sys.id))
+    : ctData;
 
   const { data: auditRows, isLoading } = useQuery({
     queryKey: ['seo-audit', contentTypeId],
@@ -221,9 +229,9 @@ export function SeoAeoGeoAudit() {
       {/* Header row */}
       <Flex justifyContent="space-between" alignItems="flex-start">
         <Flex flexDirection="column" gap="spacingXs">
-          <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">SEO / AEO / GEO Audit</Text>
+          <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL">SEO / GEO Audit</Text>
           <Text fontColor="gray600" fontSize="fontSizeS">
-            Score published entries across classic SEO, Answer Engine, and Generative Engine signals.
+            Score published entries across classic SEO, Answer Engine (AEO), and Generative Engine (GEO) signals.
           </Text>
         </Flex>
         {auditRows && auditRows.length > 0 && (
@@ -234,7 +242,7 @@ export function SeoAeoGeoAudit() {
       </Flex>
 
       {/* Content type picker */}
-      <Flex gap="spacingM" alignItems="flex-end">
+      <Flex gap="spacingM" alignItems="flex-end" flexWrap="wrap">
         <FormControl style={{ marginBottom: 0, minWidth: 220 }}>
           <FormControl.Label>Content type</FormControl.Label>
           <Select
@@ -242,11 +250,19 @@ export function SeoAeoGeoAudit() {
             onChange={(e) => { setContentTypeId(e.target.value); setSelectedEntryId(null); }}
           >
             <Select.Option value="">Select a content type…</Select.Option>
-            {ctData?.map((ct) => (
+            {filteredCtData?.map((ct) => (
               <Select.Option key={ct.sys.id} value={ct.sys.id}>{ct.name}</Select.Option>
             ))}
           </Select>
         </FormControl>
+        {seoPageContentTypes.length > 0 && (
+          <Note variant="neutral" style={{ flex: 1, minWidth: 200 }}>
+            <Text fontSize="fontSizeS">
+              Showing {seoPageContentTypes.length} configured page type{seoPageContentTypes.length !== 1 ? 's' : ''}.
+              Change selection in <strong>Config Screen → App Functions → SEO / GEO</strong>.
+            </Text>
+          </Note>
+        )}
       </Flex>
 
       <ScoringRubric />

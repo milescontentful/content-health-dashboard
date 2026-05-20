@@ -69,8 +69,9 @@ export interface AppInstallationParameters {
   // Custom content module data
   customCards?: CustomCard[];
 
-  // SEO/AEO/GEO audit config
+  // SEO/GEO audit config
   auditFreshnessThresholdDays?: number;
+  seoPageContentTypes?: string[];   // CTs shown in SEO/GEO content type picker
 
   // Search builder saved queries
   savedSearches?: SavedSearch[];
@@ -88,9 +89,17 @@ export interface AppInstallationParameters {
   // Reference Risk — content types treated as intentional entry-points (not flagged as orphaned)
   topLevelContentTypes?: string[];
 
-  // Content Ops AI Actions
-  translationActionId?: string;   // AI Action that translates entry fields to a target locale
-  altTextActionId?: string;       // AI Action that generates alt text for an asset image
+  // Content Ops — App Action / App Function action IDs
+  translationActionId?: string;    // translate-fields action (App Function or Contentful AI Action)
+  altTextActionId?: string;        // generate-alt-text action (App Function or Contentful AI Action)
+  seoAuditActionId?: string;       // seo-audit action (App Function — LLM-enhanced SEO/GEO)
+
+  // Brand voice guidelines — passed to gradeContent for tone consistency analysis
+  brandVoice?: string;
+
+  // AI Content Audit action ID (grade-content function)
+  // Reuses aiActionId key for backward compatibility with existing installations.
+  // aiActionId is declared above in "AI Content Audit".
 }
 
 export interface SavedSearch {

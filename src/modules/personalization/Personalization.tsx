@@ -29,7 +29,6 @@ import {
 import { DownloadSimpleIcon, WarningIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import type { ModuleProps } from '../types';
-import { openEntryInNewTab } from '../../lib/openInNewTab';
 
 // ─── Ninetailed content type IDs ─────────────────────────────────────────────
 const NT_EXPERIENCE_CT = 'nt_experience';
@@ -168,7 +167,8 @@ async function fetchP13nData(sdk: ReturnType<typeof useSDK>): Promise<P13nData> 
   let contentTypes: any[];
   try {
     const ctRes = await (sdk.cma as any).contentType.getMany({ query: { limit: 200 } });
-    contentTypes = ctRes.items;
+    contentTypes = (ctRes.items as Array<{ sys: { id: string }; name: string; fields: any[] }>)
+      .sort((a, b) => a.name.localeCompare(b.name));
   } catch {
     return { configured: false, experiences: [], audiences: [], coverage: [], totalPersonalized: 0, totalEntries: 0 };
   }
@@ -375,7 +375,7 @@ export function Personalization({ installationParams }: ModuleProps) {
                           <Table.Cell>
                             <TextLink
                               as="button"
-                              onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, exp.id)}
+                              onClick={() => (sdk as any).navigator?.openEntry(exp.id, { slideIn: true })}
                             >
                               {exp.name}
                             </TextLink>
@@ -426,7 +426,7 @@ export function Personalization({ installationParams }: ModuleProps) {
                         <Table.Cell>
                           <TextLink
                             as="button"
-                            onClick={() => openEntryInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, aud.id)}
+                            onClick={() => (sdk as any).navigator?.openEntry(aud.id, { slideIn: true })}
                           >
                             {aud.name}
                           </TextLink>

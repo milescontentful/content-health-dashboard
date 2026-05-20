@@ -21,7 +21,7 @@ import { useSearchEntries } from '../../hooks/useSearchEntries';
 import { setFieldMetaCache } from '../../utils/queryBuilder';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
-import type { ModuleProps, SearchQuery, SearchCondition } from '../types';
+import type { SearchQuery, SearchCondition } from '../types';
 
 const OPERATORS = [
   { value: 'equals', label: 'equals' },
@@ -68,7 +68,8 @@ export function SearchBuilder() {
     queryKey: ['content-types-search'],
     queryFn: async () => {
       const res = await (sdk.cma as any).contentType.getMany({ query: { limit: 200 } });
-      return res.items as Array<{ sys: { id: string }; name: string; fields: Array<{ id: string; name: string; type: string }> }>;
+      return (res.items as Array<{ sys: { id: string }; name: string; fields: Array<{ id: string; name: string; type: string }> }>)
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
   });
 

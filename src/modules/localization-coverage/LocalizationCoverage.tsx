@@ -15,7 +15,8 @@ import {
   Menu,
 } from '@contentful/f36-components';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
-import { extractAiActionId, invokeAiActionAndWait, AiActionNotPermittedError } from '../../lib/aiActions';
+import { invokeAppActionAndWait } from '../../lib/aiActions';
+import { APP_ACTION_IDS } from '../../lib/appActions';
 import type { ModuleProps } from '../types';
 
 interface LocaleField {
@@ -28,6 +29,21 @@ interface EntryRow {
   contentTypeId: string;
   locales: Record<string, boolean>;
   rawFields: Record<string, Record<string, unknown>>;
+  publishedVersion: number | undefined;
+  updatedVersion: number;
+}
+
+interface ContentTypeField {
+  id: string;
+  name: string;
+  type: string;
+  localized: boolean;
+}
+
+interface ContentTypeMeta {
+  sys: { id: string };
+  name: string;
+  fields: ContentTypeField[];
 }
 
 async function fetchLocalizationData(sdk: ReturnType<typeof useSDK>) {
@@ -38,9 +54,16 @@ async function fetchLocalizationData(sdk: ReturnType<typeof useSDK>) {
 
   const locales: string[] = localesRes.items.map((l: any) => l.code);
   const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? locales[0];
-  const contentTypes: Array<{ sys: { id: string }; name: string }> = contentTypesRes.items;
 
-  return { locales, defaultLocale, contentTypes };
+  const allContentTypes: ContentTypeMeta[] = contentTypesRes.items;
+  const contentTypes = allContentTypes
+    .filter((ct) => ct.fields.some((f) => f.localized))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const nonLocalizedTypes = allContentTypes
+    .filter((ct) => !ct.fields.some((f) => f.localized))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { locales, defaultLocale, contentTypes, nonLocalizedTypes };
 }
 
 async function fetchEntriesForContentType(
@@ -48,9 +71,17 @@ async function fetchEntriesForContentType(
   contentTypeId: string,
   locales: string[],
 ): Promise<EntryRow[]> {
-  const res = await (sdk.cma as any).entry.getMany({
-    query: { content_type: contentTypeId, limit: 100, 'sys.publishedAt[exists]': true },
-  });
+  const [res, ct] = await Promise.all([
+    (sdk.cma as any).entry.getMany({
+      query: { content_type: contentTypeId, limit: 100, 'sys.publishedAt[exists]': true },
+    }),
+    (sdk.cma as any).contentType.get({ contentTypeId }),
+  ]);
+
+  // Only consider fields that have localization enabled in the content model
+  const localizableFieldIds = new Set<string>(
+    (ct.fields as ContentTypeField[]).filter(f => f.localized).map(f => f.id)
+  );
 
   return res.items.map((entry: any) => {
     const titleField = Object.values(entry.fields)[0] as LocaleField | undefined;
@@ -60,14 +91,22 @@ async function fetchEntriesForContentType(
 
     const localeMap: Record<string, boolean> = {};
     for (const locale of locales) {
-      const hasValue = Object.values(entry.fields).some((fieldVal: any) => {
-        const val = fieldVal?.[locale];
+      const hasValue = [...localizableFieldIds].some((fieldId) => {
+        const val = (entry.fields[fieldId] as any)?.[locale];
         return val !== undefined && val !== null && val !== '';
       });
       localeMap[locale] = hasValue;
     }
 
-    return { id: entry.sys.id, title, contentTypeId, locales: localeMap, rawFields: entry.fields };
+    return {
+      id: entry.sys.id,
+      title,
+      contentTypeId,
+      locales: localeMap,
+      rawFields: entry.fields,
+      publishedVersion: entry.sys.publishedVersion,
+      updatedVersion: entry.sys.version,
+    };
   });
 }
 
@@ -92,9 +131,11 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
   const [selectedCtId, setSelectedCtId] = useState<string>('');
   const [translating, setTranslating] = useState<Record<string, boolean>>({});
   const [translateErrors, setTranslateErrors] = useState<Record<string, string>>({});
-  const [aiBlocked, setAiBlocked] = useState(false);;
+  const [publishing, setPublishing] = useState<Record<string, boolean>>({});
+  const [showNonLocalized, setShowNonLocalized] = useState(false);
 
-  const translationActionId = extractAiActionId(installationParams.translationActionId ?? '');
+  const translationActionId = (installationParams.translationActionId ?? '').trim();
+  const appId: string = (sdk as any).ids?.app ?? '';
   const spaceId: string = (sdk as any).ids?.space ?? '';
   const environmentId: string = (sdk as any).ids?.environment ?? 'master';
 
@@ -119,29 +160,44 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
     setTranslateErrors((e) => { const n = { ...e }; delete n[key]; return n; });
 
     try {
-      // Invoke the AI Action — it maps variable types automatically and polls until done.
-      // The action is expected to write translated fields directly back to the entry.
-      await invokeAiActionAndWait(
+      // The translateFields App Function handles everything server-side:
+      // fetches the entry, filters to localizable text fields, calls the AI Action
+      // once per field (passing the field text as the Content variable), and writes
+      // the translations back to the entry as a draft before returning.
+      const result = await invokeAppActionAndWait<{ translatedCount: number; skippedCount: number; error?: string }>(
         sdk.cma,
-        spaceId,
-        environmentId,
-        translationActionId,
-        { entryId, targetLocale, sourceLocale },
+        appId,
+        APP_ACTION_IDS.translateFields,
+        { entryId, sourceLocale, targetLocale, aiActionId: translationActionId },
       );
 
+      if (result.error) throw new Error(result.error);
+
       await queryClient.invalidateQueries({ queryKey: ['localization-entries', selectedCtId] });
-      sdk.notifier.success(`Translated entry to ${targetLocale}`);
+      sdk.notifier.success(
+        `Translated ${result.translatedCount} field(s) to ${targetLocale}` +
+        (result.skippedCount > 0 ? ` (${result.skippedCount} skipped)` : ''),
+      );
     } catch (err: any) {
-      if (err instanceof AiActionNotPermittedError) {
-        setAiBlocked(true);
-        openEntryInNewTab(spaceId, environmentId, entryId);
-      } else {
-        setTranslateErrors((e) => ({ ...e, [key]: err?.message ?? 'Translation failed.' }));
-      }
+      setTranslateErrors((e) => ({ ...e, [key]: err?.message ?? 'Translation failed.' }));
     } finally {
       setTranslating((t) => { const n = { ...t }; delete n[key]; return n; });
     }
-  }, [sdk, translationActionId, spaceId, environmentId, selectedCtId, queryClient]);
+  }, [sdk, translationActionId, appId, spaceId, environmentId, selectedCtId, queryClient]);
+
+  const handlePublish = useCallback(async (entryId: string) => {
+    setPublishing((p) => ({ ...p, [entryId]: true }));
+    try {
+      const entry = await (sdk.cma as any).entry.get({ entryId, spaceId, environmentId });
+      await (sdk.cma as any).entry.publish({ entryId, spaceId, environmentId }, entry);
+      await queryClient.invalidateQueries({ queryKey: ['localization-entries', selectedCtId] });
+      sdk.notifier.success('Entry published.');
+    } catch (err: any) {
+      sdk.notifier.error(err?.message ?? 'Publish failed.');
+    } finally {
+      setPublishing((p) => { const n = { ...p }; delete n[entryId]; return n; });
+    }
+  }, [sdk, spaceId, environmentId, selectedCtId, queryClient]);
 
   if (metaLoading) {
     return (
@@ -162,7 +218,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
 
   if (!meta) return <Note variant="negative">Could not load locale information.</Note>;
 
-  const { locales, defaultLocale, contentTypes } = meta;
+  const { locales, defaultLocale, contentTypes, nonLocalizedTypes } = meta;
 
   const coveragePct = (rows: EntryRow[], locale: string) => {
     if (!rows.length) return 0;
@@ -197,32 +253,40 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
         </Flex>
       </Flex>
 
-      {/* AI Actions blocked banner */}
-      {aiBlocked && (
-        <Note variant="warning">
-          <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">
-            <Text fontSize="fontSizeS">
-              <strong>AI Actions cannot be invoked directly from a Contentful App</strong> — the entry was opened in a new tab so you can use the native <strong>Translate</strong> button there.
-              For full in-app automation, this would require an <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-functions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>App Function</a> backend.
-            </Text>
-            <Button variant="transparent" size="small" onClick={() => setAiBlocked(false)}>Dismiss</Button>
-          </Flex>
-        </Note>
+      {/* Non-localized content types disclosure */}
+      {nonLocalizedTypes.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowNonLocalized((v) => !v)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6f7e8c', fontSize: 12, padding: 0 }}
+          >
+            {showNonLocalized ? '▲ Hide' : '▼ Show'} {nonLocalizedTypes.length} content type{nonLocalizedTypes.length !== 1 ? 's' : ''} without localization enabled
+          </button>
+          {showNonLocalized && (
+            <Note variant="neutral" style={{ marginTop: 8 }}>
+              <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS" as="p" marginBottom="spacing2Xs">
+                No localized fields — not shown in dropdown
+              </Text>
+              <Text fontSize="fontSizeS" fontColor="gray600">
+                {nonLocalizedTypes.map((ct) => ct.name).join(', ')}
+              </Text>
+              <Text fontSize="fontSizeS" fontColor="gray500" as="p" marginTop="spacing2Xs">
+                To enable translation for a content type, mark at least one field as "Localizable" in the Content Model editor.
+              </Text>
+            </Note>
+          )}
+        </div>
       )}
 
-      {/* AI Actions banner */}
+      {/* App Functions banner */}
       {!translationActionId && (
         <Note variant="neutral">
           <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">
             <Text fontSize="fontSizeS">
-              <strong>Translation AI Actions available.</strong> Configure a Contentful AI Action to add one-click translation directly from this heatmap.
-              Contentful's{' '}
-              <a href="https://www.contentful.com/marketplace/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
-                Marketplace
-              </a>{' '}
-              has translation apps that expose App Actions.
+              <strong>Translation available via App Functions.</strong> Upload the app bundle and configure the{' '}
+              <code>translate-fields</code> App Action to add one-click translation to this heatmap.
             </Text>
-            <Badge variant="secondary">Config Screen → AI Audit → Translation</Badge>
+            <Badge variant="secondary">Config Screen → App Functions</Badge>
           </Flex>
         </Note>
       )}
@@ -284,6 +348,9 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                         Translate
                       </th>
                     )}
+                    <th style={{ padding: '6px 12px', borderBottom: '2px solid #e5e9ed', textAlign: 'left', fontWeight: 600, minWidth: 140 }}>
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -291,6 +358,9 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                     const missingLocales = locales.filter((l) => l !== defaultLocale && !row.locales[l]);
                     const anyTranslating = missingLocales.some((l) => translating[`${row.id}-${l}`]);
                     const rowError = missingLocales.map((l) => translateErrors[`${row.id}-${l}`]).find(Boolean);
+                    const isDraft = row.publishedVersion === undefined;
+                    const hasUnpublishedChanges = !isDraft && row.updatedVersion > row.publishedVersion! + 1;
+                    const isPublishing = publishing[row.id];
 
                     return (
                       <tr key={row.id} style={{ background: i % 2 === 0 ? '#fff' : '#f7f9fa' }}>
@@ -365,6 +435,30 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                             )}
                           </td>
                         )}
+                        <td style={{ padding: '6px 8px' }}>
+                          {isPublishing ? (
+                            <Flex gap="spacingXs" alignItems="center">
+                              <Spinner size="small" />
+                              <Text fontSize="fontSizeS" fontColor="gray500">Publishing…</Text>
+                            </Flex>
+                          ) : isDraft ? (
+                            <Flex gap="spacingXs" alignItems="center">
+                              <Badge variant="warning">Draft</Badge>
+                              <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
+                                Publish
+                              </Button>
+                            </Flex>
+                          ) : hasUnpublishedChanges ? (
+                            <Flex gap="spacingXs" alignItems="center">
+                              <Badge variant="warning">Changed</Badge>
+                              <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
+                                Publish
+                              </Button>
+                            </Flex>
+                          ) : (
+                            <Badge variant="positive">Published</Badge>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}

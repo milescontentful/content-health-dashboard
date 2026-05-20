@@ -11,6 +11,55 @@ export function extractAiActionId(input: string): string {
 }
 
 /**
+ * Invokes an App Action (backed by an App Function) and returns the response body.
+ *
+ * Uses cma.appActionCall.createWithResponse() — the same mechanism whether the
+ * action is backed by an App Function or an external endpoint.
+ *
+ * Docs:
+ *   https://www.contentful.com/developers/docs/extensibility/app-framework/app-actions/
+ *   https://www.contentful.com/developers/docs/extensibility/app-framework/functions/#use-case-app-actions
+ */
+export async function invokeAppActionAndWait<T = Record<string, unknown>>(
+  cma: any,
+  appDefinitionId: string,
+  actionId: string,
+  parameters: Record<string, unknown>,
+): Promise<T> {
+  const result = await cma.appActionCall.createWithResponse(
+    { appActionId: actionId, appDefinitionId },
+    { parameters },
+  );
+  const rawBody = result?.response?.body ?? result?.body ?? '{}';
+  const parsed = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody;
+  return parsed as T;
+}
+
+/**
+ * Returns true if the given ID looks like a Contentful AI Action ID
+ * (base62, 20–24 chars, mix of upper+lower+digits, no hyphens or underscores)
+ * rather than an App Action ID (camelCase slug like "gradeContent", or
+ * hyphenated like "grade-content").
+ *
+ * AI Action IDs are random base62 strings, e.g. "5HAn6AVCxsbxddb5ahQpKs".
+ * App Action IDs are human-readable, e.g. "gradeContent" or "grade-content".
+ *
+ * Heuristic: AI Action IDs are 20–24 chars AND contain both digits and
+ * mixed-case letters (the randomness signature). App Action IDs are typically
+ * shorter or purely alphabetic camelCase.
+ */
+export function isAiActionId(id: string): boolean {
+  return (
+    id.length >= 20 &&
+    id.length <= 26 &&
+    /[0-9]/.test(id) &&
+    /[A-Z]/.test(id) &&
+    /[a-z]/.test(id) &&
+    /^[A-Za-z0-9]+$/.test(id)
+  );
+}
+
+/**
  * Sentinel error thrown when the App SDK blocks AiAction entity access.
  * Callers should catch this and fall back to opening the entry/asset in Contentful.
  */

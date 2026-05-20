@@ -15,7 +15,8 @@ import {
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openAssetInNewTab } from '../../lib/openInNewTab';
-import { extractAiActionId, invokeAiActionAndWait, AiActionNotPermittedError } from '../../lib/aiActions';
+import { invokeAppActionAndWait } from '../../lib/aiActions';
+import { APP_ACTION_IDS } from '../../lib/appActions';
 import type { ModuleProps } from '../types';
 
 interface AssetRow {
@@ -88,9 +89,9 @@ export function AssetHealth({ installationParams }: ModuleProps) {
   const queryClient = useQueryClient();
   const [generatingAlt, setGeneratingAlt] = useState<Record<string, boolean>>({});
   const [altErrors, setAltErrors] = useState<Record<string, string>>({});
-  const [aiBlocked, setAiBlocked] = useState(false);
 
-  const altTextActionId = extractAiActionId(installationParams.altTextActionId ?? '');
+  const altTextActionId = (installationParams.altTextActionId ?? '').trim();
+  const appId: string = (sdk as any).ids?.app ?? '';
   const spaceId: string = (sdk as any).ids?.space ?? '';
   const environmentId: string = (sdk as any).ids?.environment ?? 'master';
 
@@ -105,30 +106,38 @@ export function AssetHealth({ installationParams }: ModuleProps) {
     setAltErrors((e) => { const n = { ...e }; delete n[asset.id]; return n; });
 
     try {
-      // Invoke the AI Action — it auto-discovers MediaReference/Reference variables
-      // and maps the asset ID to them, then polls until done.
-      // The action is expected to write the alt text back to the asset directly.
-      await invokeAiActionAndWait(
+      // Always route through the generateAltText App Function.
+      // Pass the configured ID as aiActionId — if it's a Contentful AI Action ID the
+      // function proxies the call server-side (bypassing the iframe restriction).
+      const result = await invokeAppActionAndWait<{ altText: string; proxied?: boolean }>(
         sdk.cma,
-        spaceId,
-        environmentId,
-        altTextActionId,
-        { assetId: asset.id },
+        appId,
+        APP_ACTION_IDS.generateAltText,
+        { assetId: asset.id, imageUrl: asset.url, locale: sdk.locales.default, aiActionId: altTextActionId },
       );
+
+      const { altText = '', proxied } = result;
+
+      // When the AI Action writes directly to the asset (proxied path), skip the write-back.
+      // When the OpenAI path is used, write the returned alt text back to the asset.
+      if (!proxied) {
+        if (!altText) throw new Error('No alt text returned from the function.');
+        const assetData = await (sdk.cma as any).asset.get({ assetId: asset.id, spaceId, environmentId });
+        const defaultLocale: string = Object.keys(assetData.fields?.title ?? {})[0] ?? 'en-US';
+        if (!assetData.fields) assetData.fields = {};
+        if (!assetData.fields.description) assetData.fields.description = {};
+        assetData.fields.description[defaultLocale] = altText;
+        await (sdk.cma as any).asset.update({ assetId: asset.id, spaceId, environmentId }, assetData);
+      }
 
       await queryClient.invalidateQueries({ queryKey: ['asset-health'] });
       sdk.notifier.success('Alt text generated and saved.');
     } catch (err: any) {
-      if (err instanceof AiActionNotPermittedError) {
-        setAiBlocked(true);
-        openAssetInNewTab((sdk as any).ids.space, (sdk as any).ids.environment, asset.id);
-      } else {
-        setAltErrors((e) => ({ ...e, [asset.id]: err?.message ?? 'Failed to generate alt text.' }));
-      }
+      setAltErrors((e) => ({ ...e, [asset.id]: err?.message ?? 'Failed to generate alt text.' }));
     } finally {
       setGeneratingAlt((g) => { const n = { ...g }; delete n[asset.id]; return n; });
     }
-  }, [sdk, altTextActionId, spaceId, environmentId, queryClient]);
+  }, [sdk, altTextActionId, appId, spaceId, environmentId, queryClient]);
 
   if (isLoading) {
     return (
@@ -239,24 +248,14 @@ export function AssetHealth({ installationParams }: ModuleProps) {
 
         {/* Missing alt text — with AI generate button */}
         <Tabs.Panel id="alt">
-          {aiBlocked && (
-            <Note variant="warning" style={{ marginBottom: 12 }}>
-              <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">
-                <Text fontSize="fontSizeS">
-                  <strong>AI Actions cannot be invoked directly from a Contentful App</strong> — the asset was opened in a new tab so you can use the native <strong>Generate alt text</strong> button there.
-                  For full in-app automation, this requires an <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-functions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>App Function</a> backend.
-                </Text>
-                <Button variant="transparent" size="small" onClick={() => setAiBlocked(false)}>Dismiss</Button>
-              </Flex>
-            </Note>
-          )}
           {!altTextActionId && missingAlt.length > 0 && (
             <Note variant="neutral" style={{ marginBottom: 12 }}>
               <Flex justifyContent="space-between" alignItems="center" flexWrap="wrap" gap="spacingS">
                 <Text fontSize="fontSizeS">
-                  <strong>Alt Text AI Action available.</strong> Configure an AI Action to generate alt text for images in one click.
+                  <strong>Alt text generation available via App Functions.</strong> Upload the app bundle and configure the{' '}
+                  <code>generate-alt-text</code> App Action to enable one-click generation.
                 </Text>
-                <Badge variant="secondary">Config Screen → AI Audit → Alt Text Generation</Badge>
+                <Badge variant="secondary">Config Screen → App Functions</Badge>
               </Flex>
             </Note>
           )}

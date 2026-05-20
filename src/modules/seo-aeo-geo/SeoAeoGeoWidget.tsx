@@ -3,10 +3,10 @@ import type { HomeWidgetProps } from '../types';
 
 export function SeoAeoGeoWidget({ onNavigate }: HomeWidgetProps) {
   return (
-    <Card padding="default" style={{ height: '100%' }}>
+    <Card padding="default">
       <Flex flexDirection="column" gap="spacingS">
         <Flex justifyContent="space-between" alignItems="center">
-          <Text fontWeight="fontWeightDemiBold">SEO / AEO / GEO Audit</Text>
+          <Text fontWeight="fontWeightDemiBold">SEO / GEO Audit</Text>
           <TextLink as="button" onClick={() => onNavigate('seo-aeo-geo')}>Run audit →</TextLink>
         </Flex>
         <Flex gap="spacingM" flexWrap="wrap">

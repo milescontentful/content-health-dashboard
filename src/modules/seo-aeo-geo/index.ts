@@ -4,7 +4,7 @@ import { SeoAeoGeoWidget } from './SeoAeoGeoWidget';
 
 registerModule({
   id: 'seo-aeo-geo',
-  label: 'SEO / AEO / GEO',
+  label: 'SEO / GEO',
   description: 'Three scorecards per entry: classic SEO signals, Answer Engine Optimization, and Generative Engine Optimization.',
   icon: 'Star',
   defaultEnabled: true,

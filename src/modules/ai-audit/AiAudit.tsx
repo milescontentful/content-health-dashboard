@@ -1,14 +1,16 @@
 /**
- * AI Content Audit module — calls Contentful AI Actions to grade content quality.
+ * AI Content Audit module — calls the grade-content App Function via an App Action.
  *
- * Setup required:
- *  1. Create an App Action in your app definition with type "endpoint"
- *     and an action ID like "grade-content".
- *  2. The action handler should accept { entryId, title, body } and return
- *     { score: number, summary: string, suggestions: string[] }
- *  3. Set the App Action ID in the Config Screen (saved to installation params).
+ * Setup (one-time):
+ *  1. Run `npm run build:all && npm run upload` to bundle functions into the app.
+ *  2. In the app definition Actions tab, add an action with ID "grade-content",
+ *     type "Function invocation", linked to the gradeContent function.
+ *  3. Set a private installation parameter `openAiApiKey` via the CMA or CLI.
+ *  4. Enter the action ID in Config Screen → App Functions → Content Audit.
  *
- * Docs: https://www.contentful.com/developers/docs/extensibility/app-framework/app-actions/
+ * Docs:
+ *   https://www.contentful.com/developers/docs/extensibility/app-framework/functions/#use-case-app-actions
+ *   https://www.contentful.com/developers/docs/extensibility/app-framework/working-with-functions/
  */
 import { useState, useCallback } from 'react';
 import { useSDK } from '@contentful/react-apps-toolkit';
@@ -27,7 +29,15 @@ import {
 } from '@contentful/f36-components';
 import { DownloadSimpleIcon, OpenAiLogoIcon, CheckCircleIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
+import { invokeAppActionAndWait, invokeAiActionAndWait, isAiActionId } from '../../lib/aiActions';
+import { APP_ACTION_IDS } from '../../lib/appActions';
+// isAiActionId used below for content audit dual-path routing
 import type { ModuleProps } from '../types';
+
+interface CompletenessIssue {
+  field: string;
+  issue: string;
+}
 
 interface GradeResult {
   entryId: string;
@@ -35,6 +45,9 @@ interface GradeResult {
   score: number;
   summary: string;
   suggestions: string[];
+  toneScore?: number;
+  toneFeedback?: string;
+  completenessIssues: CompletenessIssue[];
   status: 'done' | 'error' | 'skipped';
   error?: string;
 }
@@ -42,6 +55,29 @@ interface GradeResult {
 function ScoreBadge({ score }: { score: number }) {
   const variant = score >= 75 ? 'positive' : score >= 50 ? 'warning' : 'negative';
   return <Badge variant={variant}>{score}</Badge>;
+}
+
+function checkCompleteness(
+  entry: any,
+  ct: { fields: Array<{ id: string; name: string; type: string; required?: boolean }> },
+  defaultLocale: string,
+): CompletenessIssue[] {
+  const issues: CompletenessIssue[] = [];
+  for (const field of ct.fields) {
+    const val = entry.fields[field.id]?.[defaultLocale];
+    const isEmpty = val === undefined || val === null || val === '' ||
+      (Array.isArray(val) && val.length === 0) ||
+      (typeof val === 'object' && val !== null && val.nodeType === 'document' && val.content?.length === 0);
+    if (isEmpty) {
+      issues.push({
+        field: field.name,
+        issue: field.required ? 'Required field is empty' : 'Optional field is empty',
+      });
+    } else if ((field.type === 'Symbol' || field.type === 'Text') && typeof val === 'string' && val.trim().length < 10) {
+      issues.push({ field: field.name, issue: 'Value is very short (< 10 chars)' });
+    }
+  }
+  return issues;
 }
 
 function SimpleProgress({ value }: { value: number }) {
@@ -58,9 +94,10 @@ function SetupGuide({ appId }: { appId: string }) {
   return (
     <Note variant="warning">
       <Flex flexDirection="column" gap="spacingS">
-        <Text fontWeight="fontWeightDemiBold">AI Action not configured</Text>
+        <Text fontWeight="fontWeightDemiBold">App Function not configured</Text>
         <Text fontSize="fontSizeS">
-          This module calls a Contentful AI Action to grade content quality. Follow the setup steps below to enable it.
+          This module calls the <code>gradeContent</code> App Function via an App Action.
+          No external hosting required — functions run on Contentful&apos;s infrastructure.
         </Text>
         <button
           onClick={() => setOpen((o) => !o)}
@@ -70,27 +107,27 @@ function SetupGuide({ appId }: { appId: string }) {
         </button>
         {open && (
           <Stack flexDirection="column" spacing="spacingXs" style={{ borderLeft: '3px solid #F0AB00', paddingLeft: 12 }}>
-            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">1. Create an App Action</Text>
+            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">1. Build &amp; upload</Text>
             <Text fontSize="fontSizeS">
-              In your App Definition, add an action with ID <code>grade-content</code> (type: endpoint).
-              The action URL should point to your function handler.
+              Run <code>npm run build:all &amp;&amp; npm run upload</code> — this bundles all four App Functions and uploads them to Contentful.
             </Text>
-            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">2. Deploy a function handler</Text>
+            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">2. Create App Action</Text>
             <Text fontSize="fontSizeS">
-              The handler receives <code>{'{ entryId, title, body, contentType }'}</code> and must return{' '}
-              <code>{'{ score: number, summary: string, suggestions: string[] }'}</code>.
-              You can use Contentful App Functions or an external endpoint.
+              In your App Definition Actions tab, add an action with ID <code>grade-content</code>,
+              type <strong>Function invocation</strong>, linked to the <code>gradeContent</code> function.
             </Text>
-            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">3. Set the App ID and Action ID</Text>
+            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">3. Set OpenAI API key</Text>
             <Text fontSize="fontSizeS">
-              Go to <strong>Config Screen → AI Audit</strong> and enter:
-              <br />• App Definition ID: <code style={{ background: '#f1f3f4', padding: '1px 4px' }}>{appId || '<your-app-def-id>'}</code>
-              <br />• Action ID: <code style={{ background: '#f1f3f4', padding: '1px 4px' }}>grade-content</code>
+              Add a private installation parameter <code>openAiApiKey</code> via the CMA.
+              App Definition ID: <code style={{ background: '#f1f3f4', padding: '1px 4px' }}>{appId || '<your-app-def-id>'}</code>
             </Text>
-            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">4. Docs</Text>
+            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">4. Enter the action ID</Text>
             <Text fontSize="fontSizeS">
-              <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-actions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
-                App Actions documentation →
+              Go to <strong>Config Screen → App Functions → Content Audit</strong> and enter <code>grade-content</code>.
+            </Text>
+            <Text fontSize="fontSizeS">
+              <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/working-with-functions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
+                Working with Functions docs →
               </a>
             </Text>
           </Stack>
@@ -111,13 +148,17 @@ export function AiAudit({ installationParams }: ModuleProps) {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
   const actionId: string = (installationParams as any).aiActionId ?? '';
+  const brandVoice: string = installationParams.brandVoice ?? '';
   const appId: string = (sdk as any).ids?.app ?? '';
+  const spaceId: string = (sdk as any).ids?.space ?? '';
+  const environmentId: string = (sdk as any).ids?.environment ?? 'master';
 
   const { data: ctData } = useQuery({
     queryKey: ['ai-audit-content-types'],
     queryFn: async () => {
       const res = await (sdk.cma as any).contentType.getMany({ query: { limit: 200 } });
-      return res.items as Array<{ sys: { id: string }; name: string; fields: Array<{ id: string; name: string; type: string }> }>;
+      return (res.items as Array<{ sys: { id: string }; name: string; fields: Array<{ id: string; name: string; type: string }> }>)
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
   });
 
@@ -157,24 +198,40 @@ export function AiAudit({ installationParams }: ModuleProps) {
           ? extractRichText(bodyVal)
           : String(bodyVal ?? '');
 
-      try {
-        const res = await (sdk.cma as any).appActionCall.createWithResponse(
-          {
-            appActionId: actionId,
-            appDefinitionId: appId,
-          },
-          {
-            parameters: { entryId: entry.sys.id, title, body: body.slice(0, 3000), contentType: contentTypeId },
-          },
-        );
+      const completenessIssues = selectedCt
+        ? checkCompleteness(entry, selectedCt, defaultLocale)
+        : [];
 
-        const payload = res?.response?.body ?? res?.body ?? {};
+      try {
+        let payload: { score: number; summary: string; suggestions: string[]; toneScore?: number; toneFeedback?: string };
+
+        if (isAiActionId(actionId)) {
+          const raw = await invokeAiActionAndWait(
+            sdk.cma,
+            spaceId,
+            environmentId,
+            actionId,
+            { entryId: entry.sys.id, targetLocale: defaultLocale },
+          );
+          payload = typeof raw === 'string' ? JSON.parse(raw) : (raw as typeof payload);
+        } else {
+          payload = await invokeAppActionAndWait(
+            sdk.cma,
+            appId,
+            APP_ACTION_IDS.gradeContent,
+            { entryId: entry.sys.id, title, body: body.slice(0, 3000), contentType: contentTypeId, brandVoice: brandVoice || undefined },
+          );
+        }
+
         allResults.push({
           entryId: entry.sys.id,
           title,
           score: typeof payload.score === 'number' ? payload.score : 0,
           summary: payload.summary ?? 'No summary returned.',
           suggestions: Array.isArray(payload.suggestions) ? payload.suggestions : [],
+          toneScore: payload.toneScore,
+          toneFeedback: payload.toneFeedback,
+          completenessIssues,
           status: 'done',
         });
       } catch (err: any) {
@@ -184,6 +241,7 @@ export function AiAudit({ installationParams }: ModuleProps) {
           score: 0,
           summary: '',
           suggestions: [],
+          completenessIssues,
           status: 'error',
           error: err?.message ?? 'Unknown error',
         });
@@ -194,7 +252,7 @@ export function AiAudit({ installationParams }: ModuleProps) {
     }
 
     setIsRunning(false);
-  }, [sdk, contentTypeId, titleField, bodyField, actionId, appId]);
+  }, [sdk, contentTypeId, titleField, bodyField, actionId, appId, spaceId, environmentId]);
 
   const handleExport = () => {
     if (!results.length) return;
@@ -267,8 +325,7 @@ export function AiAudit({ installationParams }: ModuleProps) {
 
         {!actionId && (
           <Text fontSize="fontSizeS" fontColor="gray500" marginTop="spacingS" as="p">
-            Configure an AI Action ID in Config Screen → AI Audit to enable live scoring.
-            Results will show &quot;error&quot; until then.
+            Configure an App Action ID in Config Screen → App Functions → Content Audit to enable live scoring.
           </Text>
         )}
       </Card>
@@ -309,6 +366,34 @@ export function AiAudit({ installationParams }: ModuleProps) {
                   </Flex>
                 )}
 
+                {selectedResult.toneScore !== undefined && brandVoice && (
+                  <Flex flexDirection="column" gap="spacingXs">
+                    <Flex alignItems="center" gap="spacingXs">
+                      <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">Brand voice alignment</Text>
+                      <ScoreBadge score={selectedResult.toneScore} />
+                    </Flex>
+                    {selectedResult.toneFeedback && (
+                      <Text fontSize="fontSizeS" fontColor="gray700">{selectedResult.toneFeedback}</Text>
+                    )}
+                  </Flex>
+                )}
+
+                {selectedResult.completenessIssues.length > 0 && (
+                  <Flex flexDirection="column" gap="spacingXs">
+                    <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">
+                      Completeness — {selectedResult.completenessIssues.filter((i) => i.issue.startsWith('Required')).length} required field{selectedResult.completenessIssues.filter((i) => i.issue.startsWith('Required')).length !== 1 ? 's' : ''} empty
+                    </Text>
+                    {selectedResult.completenessIssues.map((issue, i) => (
+                      <Flex key={i} gap="spacingXs" alignItems="flex-start">
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: issue.issue.startsWith('Required') ? '#E44F20' : '#F0AB00', flexShrink: 0, marginTop: 5 }} />
+                        <Text fontSize="fontSizeS" fontColor="gray700">
+                          <strong>{issue.field}</strong> — {issue.issue}
+                        </Text>
+                      </Flex>
+                    ))}
+                  </Flex>
+                )}
+
                 {selectedResult.status === 'error' && (
                   <Note variant="negative">Error: {selectedResult.error}</Note>
                 )}
@@ -316,36 +401,51 @@ export function AiAudit({ installationParams }: ModuleProps) {
             </Card>
           ) : (
             <Table>
-              <Table.Head>
-                <Table.Row>
-                  <Table.Cell>Entry</Table.Cell>
-                  <Table.Cell>Score</Table.Cell>
-                  <Table.Cell>Summary</Table.Cell>
-                  <Table.Cell>Status</Table.Cell>
-                </Table.Row>
-              </Table.Head>
-              <Table.Body>
-                {results.map((r) => (
-                  <Table.Row key={r.entryId} style={{ cursor: 'pointer' }} onClick={() => setSelectedResult(r)}>
-                    <Table.Cell>
-                      <Text style={{ color: '#1773EB', textDecoration: 'underline' }}>{r.title}</Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      {r.status === 'error' ? <Badge variant="negative">Error</Badge> : <ScoreBadge score={r.score} />}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontColor="gray600" fontSize="fontSizeS">
-                        {r.summary ? r.summary.slice(0, 80) + (r.summary.length > 80 ? '…' : '') : r.error ?? '—'}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Badge variant={r.status === 'done' ? 'positive' : r.status === 'error' ? 'negative' : 'secondary'}>
-                        {r.status}
-                      </Badge>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
+                  <Table.Head>
+                    <Table.Row>
+                      <Table.Cell>Entry</Table.Cell>
+                      <Table.Cell>Score</Table.Cell>
+                      <Table.Cell>Completeness</Table.Cell>
+                      <Table.Cell>Summary</Table.Cell>
+                      <Table.Cell>Status</Table.Cell>
+                    </Table.Row>
+                  </Table.Head>
+                  <Table.Body>
+                    {results.map((r) => {
+                      const requiredEmpty = r.completenessIssues.filter((i) => i.issue.startsWith('Required')).length;
+                      const optionalEmpty = r.completenessIssues.filter((i) => !i.issue.startsWith('Required')).length;
+                      return (
+                      <Table.Row key={r.entryId} style={{ cursor: 'pointer' }} onClick={() => setSelectedResult(r)}>
+                        <Table.Cell>
+                          <Text style={{ color: '#1773EB', textDecoration: 'underline' }}>{r.title}</Text>
+                        </Table.Cell>
+                        <Table.Cell>
+                          {r.status === 'error' ? <Badge variant="negative">Error</Badge> : <ScoreBadge score={r.score} />}
+                        </Table.Cell>
+                        <Table.Cell>
+                          {r.completenessIssues.length === 0 ? (
+                            <Badge variant="positive">Complete</Badge>
+                          ) : (
+                            <Flex gap="spacingXs" flexWrap="wrap">
+                              {requiredEmpty > 0 && <Badge variant="negative">{requiredEmpty} required</Badge>}
+                              {optionalEmpty > 0 && <Badge variant="warning">{optionalEmpty} optional</Badge>}
+                            </Flex>
+                          )}
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Text fontColor="gray600" fontSize="fontSizeS">
+                            {r.summary ? r.summary.slice(0, 80) + (r.summary.length > 80 ? '…' : '') : r.error ?? '—'}
+                          </Text>
+                        </Table.Cell>
+                        <Table.Cell>
+                          <Badge variant={r.status === 'done' ? 'positive' : r.status === 'error' ? 'negative' : 'secondary'}>
+                            {r.status}
+                          </Badge>
+                        </Table.Cell>
+                      </Table.Row>
+                      );
+                    })}
+                  </Table.Body>
             </Table>
           )}
         </>

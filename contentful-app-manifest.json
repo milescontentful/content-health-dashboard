@@ -1,0 +1,188 @@
+{
+  "functions": [
+    {
+      "id": "gradeContent",
+      "name": "Content Audit",
+      "description": "Grades entry quality using an LLM and returns a score, summary, and actionable suggestions.",
+      "path": "functions/gradeContent.js",
+      "entryFile": "functions/gradeContent.ts",
+      "allowNetworks": [
+        "api.openai.com"
+      ],
+      "accepts": [
+        "appaction.call"
+      ]
+    },
+    {
+      "id": "translateFields",
+      "name": "Translation",
+      "description": "Translates an entry's text fields from a source locale to a target locale using an LLM.",
+      "path": "functions/translateFields.js",
+      "entryFile": "functions/translateFields.ts",
+      "allowNetworks": [
+        "api.openai.com"
+      ],
+      "accepts": [
+        "appaction.call"
+      ]
+    },
+    {
+      "id": "generateAltText",
+      "name": "Alt Text Generator",
+      "description": "Analyses an image URL and generates descriptive, accessible alt text.",
+      "path": "functions/generateAltText.js",
+      "entryFile": "functions/generateAltText.ts",
+      "allowNetworks": [
+        "api.openai.com"
+      ],
+      "accepts": [
+        "appaction.call"
+      ]
+    },
+    {
+      "id": "seoAudit",
+      "name": "SEO / GEO Audit",
+      "description": "Enriches heuristic SEO/AEO/GEO scores with LLM-powered analysis and concrete recommendations.",
+      "path": "functions/seoAudit.js",
+      "entryFile": "functions/seoAudit.ts",
+      "allowNetworks": [
+        "api.openai.com"
+      ],
+      "accepts": [
+        "appaction.call"
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "id": "45k5Y7rpZp69W4W5GgJEl",
+      "name": "Translate Fields",
+      "description": "Translates localizable text fields server-side via Contentful AI Actions.",
+      "type": "function-invocation",
+      "functionId": "translateFields",
+      "category": "Custom",
+      "parameters": [
+        {
+          "id": "entryId",
+          "name": "Entry ID",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "sourceLocale",
+          "name": "Source Locale",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "targetLocale",
+          "name": "Target Locale",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "aiActionId",
+          "name": "AI Action ID",
+          "type": "Symbol",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "71sWCYnut53oNetvj9cSrf",
+      "name": "Generate Alt Text",
+      "description": "Generates accessible alt text for an asset via Contentful AI Actions.",
+      "type": "function-invocation",
+      "functionId": "generateAltText",
+      "category": "Custom",
+      "parameters": [
+        {
+          "id": "assetId",
+          "name": "Asset ID",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "imageUrl",
+          "name": "Image URL",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "locale",
+          "name": "Locale",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "aiActionId",
+          "name": "AI Action ID",
+          "type": "Symbol",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "1ML3ZcFTttElOy4rYl7hPZ",
+      "name": "Grade Content",
+      "description": "Grades entry quality and returns a score, summary, and actionable suggestions.",
+      "type": "function-invocation",
+      "functionId": "gradeContent",
+      "category": "Custom",
+      "parameters": [
+        {
+          "id": "entryId",
+          "name": "Entry ID",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "title",
+          "name": "Title",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "body",
+          "name": "Body",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "contentType",
+          "name": "Content Type",
+          "type": "Symbol",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "7pfbyjgv5Y8hs3iLQDAMUV",
+      "name": "SEO Audit",
+      "description": "Enriches heuristic SEO/AEO/GEO scores with LLM-powered analysis and recommendations.",
+      "type": "function-invocation",
+      "functionId": "seoAudit",
+      "category": "Custom",
+      "parameters": [
+        {
+          "id": "entryId",
+          "name": "Entry ID",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "scores",
+          "name": "Scores JSON",
+          "type": "Symbol",
+          "required": true
+        },
+        {
+          "id": "content",
+          "name": "Content JSON",
+          "type": "Symbol",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

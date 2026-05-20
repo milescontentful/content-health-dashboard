@@ -10,7 +10,6 @@ import {
   Card,
   Button,
 } from '@contentful/f36-components';
-import type { ModuleProps } from '../types';
 
 function SimpleProgress({ value }: { value: number }) {
   return (
@@ -30,7 +29,8 @@ interface CoverageRow {
 
 async function fetchTaxonomyCoverage(sdk: ReturnType<typeof useSDK>): Promise<CoverageRow[]> {
   const ctRes = await (sdk.cma as any).contentType.getMany({ query: { limit: 200 } });
-  const contentTypes: Array<{ sys: { id: string }; name: string }> = ctRes.items;
+  const contentTypes: Array<{ sys: { id: string }; name: string }> = (ctRes.items as Array<{ sys: { id: string }; name: string }>)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const rows: CoverageRow[] = [];
 
@@ -59,7 +59,7 @@ async function fetchTaxonomyCoverage(sdk: ReturnType<typeof useSDK>): Promise<Co
   return rows.sort((a, b) => a.pct - b.pct);
 }
 
-export function TaxonomyCoverage(_props: ModuleProps) {
+export function TaxonomyCoverage() {
   const sdk = useSDK();
 
   const { data: rows, isLoading, refetch } = useQuery({
@@ -77,10 +77,17 @@ export function TaxonomyCoverage(_props: ModuleProps) {
             <Text fontColor="gray600" fontSize="fontSizeS">Concept assignment coverage per content type — pairs with your Taxonomy Viewer app.</Text>
           </Flex>
         </Flex>
-        <Flex gap="spacingS" alignItems="center" paddingTop="spacingL">
-          <Spinner />
-          <Text fontColor="gray500" fontSize="fontSizeS">Sampling entries across all content types…</Text>
-        </Flex>
+        <Note variant="neutral">
+          <Flex gap="spacingS" alignItems="center">
+            <Spinner />
+            <Flex flexDirection="column" gap="spacing2Xs">
+              <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">Loading taxonomy data…</Text>
+              <Text fontColor="gray500" fontSize="fontSizeS">
+                Sampling entries across all content types. This may take 10–30 seconds for large spaces — please stay on this tab.
+              </Text>
+            </Flex>
+          </Flex>
+        </Note>
       </Flex>
     );
   }

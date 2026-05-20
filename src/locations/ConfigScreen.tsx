@@ -12,6 +12,7 @@ import {
   Select,
   Tooltip,
   TextInput,
+  Textarea,
   Button,
   Card,
   Note,
@@ -326,6 +327,7 @@ const ConfigScreen = () => {
   const [parameters, setParameters] = useState<AppInstallationParameters>({});
   const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>([]);
   const [selectedTopLevelCTs, setSelectedTopLevelCTs] = useState<ContentType[]>([]);
+  const [selectedSeoCTs, setSelectedSeoCTs] = useState<ContentType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'p13n' | 'contentful-analytics' | 'reference-risk'>('analytics');
 
@@ -387,6 +389,7 @@ const ConfigScreen = () => {
         ...parameters,
         defaultContentTypes: selectedContentTypes.map((ct) => ct.id),
         topLevelContentTypes: selectedTopLevelCTs.map((ct) => ct.id),
+        seoPageContentTypes: selectedSeoCTs.map((ct) => ct.id),
       },
       targetState: currentState,
     };
@@ -419,7 +422,7 @@ const ConfigScreen = () => {
     { id: 'modules', label: 'Modules' },
     { id: 'theme', label: 'Theme' },
     { id: 'cards', label: 'Custom Cards' },
-    { id: 'ai', label: 'AI Audit' },
+    { id: 'ai', label: 'App Functions' },
     { id: 'p13n', label: 'Personalization' },
     { id: 'contentful-analytics', label: 'Contentful Analytics' },
     { id: 'reference-risk', label: 'Reference Risk' },
@@ -559,81 +562,176 @@ const ConfigScreen = () => {
           </Flex>
         )}
 
-        {/* ── AI Audit ── */}
+        {/* ── AI / App Functions ── */}
         {activeSection === 'ai' && (
           <Flex flexDirection="column" gap="spacingM">
-            <Heading as="h3" marginBottom="spacingXs">AI Audit configuration</Heading>
-            <Text fontColor="gray600" marginBottom="spacingM">
-              Connect the AI Audit module to a Contentful App Action that grades content quality.
-              The action should accept <code>{'{ entryId, title, body, contentType }'}</code> and return{' '}
-              <code>{'{ score, summary, suggestions[] }'}</code>.
-            </Text>
-            <Note variant="neutral">
-              Docs:{' '}
-              <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-actions/" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
-                Contentful App Actions →
-              </a>
+            <Heading as="h3" marginBottom="spacingXs">App Functions — AI capabilities</Heading>
+
+            <Note variant="positive">
+              <Flex flexDirection="column" gap="spacingXs">
+                <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">Zero external hosting required</Text>
+                <Text fontSize="fontSizeS">
+                  This app uses <strong>Contentful App Functions</strong> — serverless workloads that run on Contentful&apos;s
+                  own infrastructure. No Vercel, no local server. Build once, upload once, share with every colleague who installs
+                  the app.{' '}
+                  <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/functions/" target="_blank" rel="noopener noreferrer" style={{ color: '#0d7240' }}>
+                    Functions docs →
+                  </a>
+                </Text>
+              </Flex>
             </Note>
+
+            {/* How it works */}
+            <Card padding="default">
+              <Text fontWeight="fontWeightDemiBold" marginBottom="spacingS" as="p">Four built-in functions</Text>
+              <Flex flexDirection="column" gap="spacingXs">
+                {[
+                  { id: 'grade-content', name: 'Content Audit', desc: 'Grades entry quality — score, summary, suggestions' },
+                  { id: 'translate-fields', name: 'Translation', desc: 'Translates text fields between locales' },
+                  { id: 'generate-alt-text', name: 'Alt Text Generator', desc: 'Generates accessible alt text from image URLs' },
+                  { id: 'seo-audit', name: 'SEO / GEO Audit', desc: 'LLM-enhanced SEO, AEO, and GEO scoring' },
+                ].map((fn) => (
+                  <Flex key={fn.id} gap="spacingS" alignItems="flex-start">
+                    <Badge variant="secondary" style={{ flexShrink: 0, fontFamily: 'monospace', fontSize: 11 }}>{fn.id}</Badge>
+                    <Text fontSize="fontSizeS"><strong>{fn.name}</strong> — {fn.desc}</Text>
+                  </Flex>
+                ))}
+              </Flex>
+            </Card>
+
+            {/* Setup checklist */}
+            <Card padding="default">
+              <Text fontWeight="fontWeightDemiBold" marginBottom="spacingS" as="p">Setup checklist</Text>
+              <Flex flexDirection="column" gap="spacingS">
+                {[
+                  { step: '1', label: 'Build & upload', desc: 'Run npm run build:all then npm run upload to bundle functions into your app.' },
+                  { step: '2', label: 'Create App Actions', desc: <>In the <a href="https://app.contentful.com/deeplink?link=app-definition&tab=actions" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>Actions tab</a> of your app definition, add four actions with IDs: <code>grade-content</code>, <code>translate-fields</code>, <code>generate-alt-text</code>, <code>seo-audit</code>. Set type to <strong>Function invocation</strong> and link each to its function.</> },
+                  { step: '3', label: 'Set OpenAI API key', desc: <>Store your key as a <strong>private installation parameter</strong> named <code>openAiApiKey</code> via the CMA or CLI. It is never exposed to the browser. <a href="https://www.contentful.com/developers/docs/extensibility/app-framework/app-parameters/#private-installation-parameters" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>Docs →</a></> },
+                  { step: '4', label: 'Enter action IDs below', desc: 'Paste the App Action IDs so the dashboard UI knows which actions to call.' },
+                ].map(({ step, label, desc }) => (
+                  <Flex key={step} gap="spacingS" alignItems="flex-start">
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#1773EB', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2 }}>{step}</div>
+                    <Flex flexDirection="column" gap="spacing2Xs">
+                      <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">{label}</Text>
+                      <Text fontSize="fontSizeS" fontColor="gray700">{desc}</Text>
+                    </Flex>
+                  </Flex>
+                ))}
+              </Flex>
+            </Card>
+
+            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '4px 0' }} />
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">App Action IDs</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">
+              These tell the dashboard which App Actions to call. The actions must be linked to their corresponding
+              App Functions in the Actions tab of your app definition.
+            </Text>
+
             <FormControl>
-              <FormControl.Label>Content Grading — App Action ID</FormControl.Label>
+              <FormControl.Label>Content Audit — App Action ID</FormControl.Label>
               <TextInput
                 value={(parameters as any).aiActionId ?? ''}
                 onChange={(e) => setParameters((p) => ({ ...p, aiActionId: e.target.value }))}
                 placeholder="grade-content"
               />
               <FormControl.HelpText>
-                Accepts <code>{'{ entryId, title, body, contentType }'}</code> · Returns <code>{'{ score, summary, suggestions[] }'}</code>
+                Linked to the <code>gradeContent</code> function · accepts <code>{'{ entryId, title, body, contentType }'}</code>
               </FormControl.HelpText>
             </FormControl>
 
-            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '8px 0' }} />
-            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">Translation</Text>
-            <Text fontColor="gray600" fontSize="fontSizeS">
-              Power the <strong>Translate</strong> buttons in the Localization Coverage module.
-              The action receives source locale field values and returns translated text for each field.
-            </Text>
             <FormControl>
-              <FormControl.Label>Translation — AI Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <FormControl.Label>Translation — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
               <TextInput
                 value={parameters.translationActionId ?? ''}
                 onChange={(e) => {
                   const raw = e.target.value;
                   const match = raw.match(/\/ai_actions\/([^/?#\s]+)/);
-                  setParameters((p) => ({ ...p, translationActionId: match ? match[1] : raw }));
+                  setParameters((p) => ({ ...p, translationActionId: match ? match[1] : raw.trim() }));
                 }}
-                placeholder="5HAn6AVCxsbxddb5ahQpKs  (or paste the full URL)"
+                placeholder="translate-fields"
               />
               <FormControl.HelpText>
-                Paste the action ID or its full <code>app.contentful.com</code> URL — the ID will be extracted automatically.
+                Linked to the <code>translateFields</code> function · powers Translate buttons in Localization Coverage.
+                Also accepts Contentful AI Action IDs.
               </FormControl.HelpText>
               {parameters.translationActionId && (
-                <Text fontSize="fontSizeS" fontColor="gray600">Using action ID: <code>{parameters.translationActionId}</code></Text>
+                <Text fontSize="fontSizeS" fontColor="gray600">Active: <code>{parameters.translationActionId}</code></Text>
               )}
             </FormControl>
 
-            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '8px 0' }} />
-            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">Alt Text Generation</Text>
-            <Text fontColor="gray600" fontSize="fontSizeS">
-              Power the <strong>Generate alt text</strong> buttons in the Asset Health module.
-              The action analyses the image URL and returns a descriptive alt text string.
-            </Text>
             <FormControl>
-              <FormControl.Label>Alt Text — AI Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <FormControl.Label>Alt Text Generator — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
               <TextInput
                 value={parameters.altTextActionId ?? ''}
                 onChange={(e) => {
                   const raw = e.target.value;
                   const match = raw.match(/\/ai_actions\/([^/?#\s]+)/);
-                  setParameters((p) => ({ ...p, altTextActionId: match ? match[1] : raw }));
+                  setParameters((p) => ({ ...p, altTextActionId: match ? match[1] : raw.trim() }));
                 }}
-                placeholder="4LbT2NLhRnGixGSbuDuL1n  (or paste the full URL)"
+                placeholder="generate-alt-text"
               />
               <FormControl.HelpText>
-                Paste the action ID or its full <code>app.contentful.com</code> URL — the ID will be extracted automatically.
+                Linked to the <code>generateAltText</code> function · powers Generate buttons in Asset Health.
+                Also accepts Contentful AI Action IDs.
               </FormControl.HelpText>
               {parameters.altTextActionId && (
-                <Text fontSize="fontSizeS" fontColor="gray600">Using action ID: <code>{parameters.altTextActionId}</code></Text>
+                <Text fontSize="fontSizeS" fontColor="gray600">Active: <code>{parameters.altTextActionId}</code></Text>
               )}
+            </FormControl>
+
+            <FormControl>
+              <FormControl.Label>SEO / GEO Audit — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                value={(parameters as any).seoAuditActionId ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, seoAuditActionId: e.target.value.trim() }))}
+                placeholder="seo-audit"
+              />
+              <FormControl.HelpText>
+                Linked to the <code>seoAudit</code> function · enriches heuristic SEO/GEO scores with LLM analysis.
+              </FormControl.HelpText>
+            </FormControl>
+
+            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '4px 0' }} />
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">SEO / GEO — Page Content Types</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">
+              Select which content types represent pages (blog posts, landing pages, product pages, etc.).
+              The SEO / GEO tab will only show these types in its content type picker.
+              Leave empty to show all content types.
+            </Text>
+            <FormControl>
+              <FormControl.Label>
+                Page content types <Badge variant="secondary">Optional</Badge>
+              </FormControl.Label>
+              <ContentTypeMultiSelect
+                selectedContentTypes={selectedSeoCTs}
+                setSelectedContentTypes={setSelectedSeoCTs}
+                sdk={sdk}
+                initialSelectedIds={parameters.seoPageContentTypes}
+              />
+              <FormControl.HelpText>
+                Only these content types will appear in the SEO / GEO audit content type picker.
+              </FormControl.HelpText>
+            </FormControl>
+
+            <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '4px 0' }} />
+            <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">Brand Voice</Text>
+            <Text fontColor="gray600" fontSize="fontSizeS">
+              Describe your brand's voice and tone. The AI Content Audit will use this to score tone consistency
+              alongside quality and completeness.
+            </Text>
+            <FormControl>
+              <FormControl.Label>
+                Brand voice guidelines <Badge variant="secondary">Optional</Badge>
+              </FormControl.Label>
+              <Textarea
+                value={parameters.brandVoice ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, brandVoice: e.target.value }))}
+                placeholder="e.g. Friendly and approachable, avoid jargon, always use 'you' when addressing the reader, Oxford comma required..."
+                rows={3}
+              />
+              <FormControl.HelpText>
+                2–3 sentences is enough. Passed to the AI grader to check tone consistency.
+              </FormControl.HelpText>
             </FormControl>
           </Flex>
         )}
