@@ -586,22 +586,6 @@ const ConfigScreen = () => {
                 Linked to the <code>gradeContent</code> function · accepts <code>{'{ entryId, title, body, contentType }'}</code>
               </FormControl.HelpText>
             </FormControl>
-            <Note variant="neutral">
-              <Flex flexDirection="column" gap="spacingXs">
-                <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">Need a Content Quality Audit AI Action?</Text>
-                <Text fontSize="fontSizeS" fontColor="gray700">
-                  Go to your space&apos;s{' '}
-                  <a href={`https://app.contentful.com/spaces/${sdk.ids.space}/ai/actions`} target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
-                    AI Actions
-                  </a>{' '}
-                  and create a new action named <strong>Content Quality Audit</strong> with a <code>StandardInput</code> variable
-                  named <code>entryContent</code>. Paste the prompt from{' '}
-                  <a href="https://github.com/milescontentful/content-health-dashboard/blob/main/docs/ai-actions.md" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
-                    docs/ai-actions.md →
-                  </a>
-                </Text>
-              </Flex>
-            </Note>
 
             <FormControl>
               <FormControl.Label>Translation — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
@@ -684,22 +668,6 @@ const ConfigScreen = () => {
                 and generates AI-rewritten meta title and description suggestions.
               </FormControl.HelpText>
             </FormControl>
-            <Note variant="neutral">
-              <Flex flexDirection="column" gap="spacingXs">
-                <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS">Need a SEO / GEO Audit AI Action?</Text>
-                <Text fontSize="fontSizeS" fontColor="gray700">
-                  Go to your space&apos;s{' '}
-                  <a href={`https://app.contentful.com/spaces/${sdk.ids.space}/ai/actions`} target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
-                    AI Actions
-                  </a>{' '}
-                  and create a new action named <strong>SEO / GEO Audit</strong> with a <code>StandardInput</code> variable
-                  named <code>pageContent</code>. Paste the prompt from{' '}
-                  <a href="https://github.com/milescontentful/content-health-dashboard/blob/main/docs/ai-actions.md" target="_blank" rel="noopener noreferrer" style={{ color: '#1773EB' }}>
-                    docs/ai-actions.md →
-                  </a>
-                </Text>
-              </Flex>
-            </Note>
 
             <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '4px 0' }} />
             <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">Brand Voice</Text>
