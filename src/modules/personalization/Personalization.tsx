@@ -381,7 +381,7 @@ export function Personalization({ installationParams }: ModuleProps) {
                             </TextLink>
                           </Table.Cell>
                           <Table.Cell>
-                            <Badge variant={experienceTypeVariant(exp.type)}>
+                            <Badge variant={experienceTypeVariant(exp.type)} style={{ textTransform: 'none' }}>
                               {experienceTypeLabel(exp.type)}
                             </Badge>
                           </Table.Cell>
