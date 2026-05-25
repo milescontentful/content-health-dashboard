@@ -389,7 +389,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                             }
                           </td>
                         ))}
-                        {/* Unified Actions column: translate (if configured) then publish */}
+                        {/* Unified Actions column: [status badge] [translate] [publish] — all one row */}
                         <td style={{ padding: '6px 8px' }}>
                           {isPublishing ? (
                             <Flex gap="spacingXs" alignItems="center">
@@ -397,8 +397,17 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                               <Text fontSize="fontSizeS" fontColor="gray500">Publishing…</Text>
                             </Flex>
                           ) : (
-                            <Flex flexDirection="column" gap="spacingXs">
-                              {/* Translate buttons — only when action ID configured and locales missing */}
+                            <Flex gap="spacingXs" alignItems="center" flexWrap="wrap">
+                              {/* 1 — Status badge */}
+                              {isDraft ? (
+                                <Badge variant="warning">Draft</Badge>
+                              ) : hasUnpublishedChanges ? (
+                                <Badge variant="warning">Changed</Badge>
+                              ) : (
+                                <Badge variant="positive">Published</Badge>
+                              )}
+
+                              {/* 2 — Translate (only when action ID configured and locales missing) */}
                               {translationActionId && missingLocales.length > 0 && (
                                 anyTranslating ? (
                                   <Flex gap="spacingXs" alignItems="center">
@@ -406,10 +415,10 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                                     <Text fontSize="fontSizeS" fontColor="gray500">Translating…</Text>
                                   </Flex>
                                 ) : missingLocales.length === 1 ? (
-                                  <Flex gap="spacingXs" alignItems="center">
+                                  <>
                                     {rowError && (
                                       <Tooltip content={rowError} placement="top">
-                                        <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>⚠ Error</Text>
+                                        <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>⚠</Text>
                                       </Tooltip>
                                     )}
                                     <Button
@@ -419,12 +428,12 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                                     >
                                       Translate → {missingLocales[0]} ✦
                                     </Button>
-                                  </Flex>
+                                  </>
                                 ) : (
-                                  <Flex gap="spacingXs" alignItems="center">
+                                  <>
                                     {rowError && (
                                       <Tooltip content={rowError} placement="top">
-                                        <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>⚠ Error</Text>
+                                        <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>⚠</Text>
                                       </Tooltip>
                                     )}
                                     <Menu>
@@ -445,34 +454,20 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                                         </Menu.Item>
                                       </Menu.List>
                                     </Menu>
-                                  </Flex>
+                                  </>
                                 )
                               )}
-                              {/* Status + Publish */}
-                              {isDraft ? (
-                                <Flex gap="spacingXs" alignItems="center">
-                                  <Badge variant="warning">Draft</Badge>
-                                  <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
-                                    Publish
-                                  </Button>
-                                </Flex>
-                              ) : hasUnpublishedChanges ? (
-                                <Flex gap="spacingXs" alignItems="center">
-                                  <Badge variant="warning">Changed</Badge>
-                                  <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
-                                    Publish
-                                  </Button>
-                                </Flex>
+
+                              {/* 3 — Publish / Re-publish */}
+                              {(isDraft || hasUnpublishedChanges) ? (
+                                <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
+                                  Publish
+                                </Button>
                               ) : missingLocales.length > 0 ? (
-                                <Flex gap="spacingXs" alignItems="center">
-                                  <Badge variant="positive">Published</Badge>
-                                  <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
-                                    Re-publish
-                                  </Button>
-                                </Flex>
-                              ) : (
-                                <Badge variant="positive">Published</Badge>
-                              )}
+                                <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
+                                  Re-publish
+                                </Button>
+                              ) : null}
                             </Flex>
                           )}
                         </td>
