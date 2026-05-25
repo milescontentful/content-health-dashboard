@@ -153,10 +153,14 @@ export async function createSampleEntry(
   console.log(`Creating sample entry ${index + 1}...`);
 
   const fields: KeyValueMap = {
-    shortText: { 'en-US': 'Sample Short Text ' + (index + 1) },
+    shortText: {
+      'en-US': 'Sample Short Text ' + (index + 1),
+      ja: 'サンプル短テキスト ' + (index + 1),
+    },
     longText: {
       'en-US':
         'This is a sample long text field with multiple lines.\nIt can contain paragraphs and formatting.',
+      ja: 'これは複数行のサンプル長テキストフィールドです。\n段落や書式を含めることができます。',
     },
     richText: {
       'en-US': {
@@ -177,6 +181,24 @@ export async function createSampleEntry(
           },
         ],
       },
+      ja: {
+        nodeType: 'document',
+        data: {},
+        content: [
+          {
+            nodeType: 'paragraph',
+            data: {},
+            content: [
+              {
+                nodeType: 'text',
+                value: 'これは書式付きのサンプルリッチテキストフィールドです。',
+                marks: [],
+                data: {},
+              },
+            ],
+          },
+        ],
+      },
     },
     integerNumber: { 'en-US': 42 },
     decimalNumber: { 'en-US': 3.14159 },
@@ -184,7 +206,10 @@ export async function createSampleEntry(
     boolean: { 'en-US': true },
     jsonObject: { 'en-US': { key: 'value', nested: { data: 'example' } } },
     location: { 'en-US': { lat: 40.7128, lon: -74.006 } },
-    symbolArray: { 'en-US': ['Item 1', 'Item 2', 'Item 3'] },
+    symbolArray: {
+      'en-US': ['Item 1', 'Item 2', 'Item 3'],
+      ja: ['アイテム 1', 'アイテム 2', 'アイテム 3'],
+    },
   };
 
   const body = {

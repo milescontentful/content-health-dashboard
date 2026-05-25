@@ -70,6 +70,7 @@ async function fetchEntriesForContentType(
   sdk: ReturnType<typeof useSDK>,
   contentTypeId: string,
   locales: string[],
+  defaultLocale: string,
 ): Promise<EntryRow[]> {
   const [res, ct] = await Promise.all([
     (sdk.cma as any).entry.getMany({
@@ -83,11 +84,19 @@ async function fetchEntriesForContentType(
     (ct.fields as ContentTypeField[]).filter(f => f.localized).map(f => f.id)
   );
 
-  return res.items.map((entry: any) => {
-    const titleField = Object.values(entry.fields)[0] as LocaleField | undefined;
-    const title = titleField
-      ? (Object.values(titleField)[0] as string) ?? entry.sys.id
-      : entry.sys.id;
+  // Display field (first field declared on the content type) for title resolution
+  const displayFieldId: string | undefined = (ct as any).displayField;
+
+  const rows: EntryRow[] = res.items.map((entry: any) => {
+    // Resolve title: prefer en-US → defaultLocale → first available value
+    const titleRaw = displayFieldId
+      ? (entry.fields[displayFieldId] as LocaleField | undefined)
+      : (Object.values(entry.fields)[0] as LocaleField | undefined);
+    const title: string =
+      (titleRaw?.['en-US'] as string | undefined) ??
+      (titleRaw?.[defaultLocale] as string | undefined) ??
+      (titleRaw ? (Object.values(titleRaw)[0] as string) : undefined) ??
+      entry.sys.id;
 
     const localeMap: Record<string, boolean> = {};
     for (const locale of locales) {
@@ -108,6 +117,9 @@ async function fetchEntriesForContentType(
       updatedVersion: entry.sys.version,
     };
   });
+
+  // Sort alphabetically by resolved (en-US) title
+  return rows.sort((a, b) => a.title.localeCompare(b.title, 'en'));
 }
 
 function CoverageCell({ covered }: { covered: boolean }) {
@@ -146,7 +158,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
 
   const { data: entries, isLoading: entriesLoading } = useQuery({
     queryKey: ['localization-entries', selectedCtId],
-    queryFn: () => fetchEntriesForContentType(sdk, selectedCtId, meta?.locales ?? []),
+    queryFn: () => fetchEntriesForContentType(sdk, selectedCtId, meta?.locales ?? [], meta?.defaultLocale ?? 'en-US'),
     enabled: !!selectedCtId && !!meta,
   });
 
@@ -343,13 +355,8 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                         {l}
                       </th>
                     ))}
-                    {translationActionId && (
-                      <th style={{ padding: '6px 12px', borderBottom: '2px solid #e5e9ed', textAlign: 'left', fontWeight: 600, minWidth: 120 }}>
-                        Translate
-                      </th>
-                    )}
-                    <th style={{ padding: '6px 12px', borderBottom: '2px solid #e5e9ed', textAlign: 'left', fontWeight: 600, minWidth: 140 }}>
-                      Status
+                    <th style={{ padding: '6px 12px', borderBottom: '2px solid #e5e9ed', textAlign: 'left', fontWeight: 600, minWidth: 220 }}>
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -382,81 +389,91 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                             }
                           </td>
                         ))}
-                        {translationActionId && (
-                          <td style={{ padding: '6px 8px' }}>
-                            {missingLocales.length === 0 ? (
-                              <Badge variant="positive">Complete</Badge>
-                            ) : anyTranslating ? (
-                              <Flex gap="spacingXs" alignItems="center">
-                                <Spinner size="small" />
-                                <Text fontSize="fontSizeS" fontColor="gray500">Translating…</Text>
-                              </Flex>
-                            ) : missingLocales.length === 1 ? (
-                              <Flex gap="spacingXs" alignItems="center">
-                                {rowError && (
-                                  <Tooltip content={rowError} placement="top">
-                                    <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>Error</Text>
-                                  </Tooltip>
-                                )}
-                                <Button
-                                  variant="secondary"
-                                  size="small"
-                                  onClick={() => handleTranslate(row.id, missingLocales[0], defaultLocale)}
-                                >
-                                  Translate → {missingLocales[0]} ✦
-                                </Button>
-                              </Flex>
-                            ) : (
-                              <Flex gap="spacingXs" alignItems="center" flexWrap="wrap">
-                                {rowError && (
-                                  <Tooltip content={rowError} placement="top">
-                                    <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>Error</Text>
-                                  </Tooltip>
-                                )}
-                                <Menu>
-                                  <Menu.Trigger>
-                                    <Button variant="secondary" size="small">
-                                      Translate ({missingLocales.length}) ✦
-                                    </Button>
-                                  </Menu.Trigger>
-                                  <Menu.List>
-                                    {missingLocales.map((l) => (
-                                      <Menu.Item key={l} onClick={() => handleTranslate(row.id, l, defaultLocale)}>
-                                        → {l}
-                                      </Menu.Item>
-                                    ))}
-                                    <Menu.Divider />
-                                    <Menu.Item onClick={() => missingLocales.forEach((l) => handleTranslate(row.id, l, defaultLocale))}>
-                                      Translate all missing
-                                    </Menu.Item>
-                                  </Menu.List>
-                                </Menu>
-                              </Flex>
-                            )}
-                          </td>
-                        )}
+                        {/* Unified Actions column: translate (if configured) then publish */}
                         <td style={{ padding: '6px 8px' }}>
                           {isPublishing ? (
                             <Flex gap="spacingXs" alignItems="center">
                               <Spinner size="small" />
                               <Text fontSize="fontSizeS" fontColor="gray500">Publishing…</Text>
                             </Flex>
-                          ) : isDraft ? (
-                            <Flex gap="spacingXs" alignItems="center">
-                              <Badge variant="warning">Draft</Badge>
-                              <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
-                                Publish
-                              </Button>
-                            </Flex>
-                          ) : hasUnpublishedChanges ? (
-                            <Flex gap="spacingXs" alignItems="center">
-                              <Badge variant="warning">Changed</Badge>
-                              <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
-                                Publish
-                              </Button>
-                            </Flex>
                           ) : (
-                            <Badge variant="positive">Published</Badge>
+                            <Flex flexDirection="column" gap="spacingXs">
+                              {/* Translate buttons — only when action ID configured and locales missing */}
+                              {translationActionId && missingLocales.length > 0 && (
+                                anyTranslating ? (
+                                  <Flex gap="spacingXs" alignItems="center">
+                                    <Spinner size="small" />
+                                    <Text fontSize="fontSizeS" fontColor="gray500">Translating…</Text>
+                                  </Flex>
+                                ) : missingLocales.length === 1 ? (
+                                  <Flex gap="spacingXs" alignItems="center">
+                                    {rowError && (
+                                      <Tooltip content={rowError} placement="top">
+                                        <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>⚠ Error</Text>
+                                      </Tooltip>
+                                    )}
+                                    <Button
+                                      variant="secondary"
+                                      size="small"
+                                      onClick={() => handleTranslate(row.id, missingLocales[0], defaultLocale)}
+                                    >
+                                      Translate → {missingLocales[0]} ✦
+                                    </Button>
+                                  </Flex>
+                                ) : (
+                                  <Flex gap="spacingXs" alignItems="center">
+                                    {rowError && (
+                                      <Tooltip content={rowError} placement="top">
+                                        <Text fontSize="fontSizeS" style={{ color: '#E44F20' }}>⚠ Error</Text>
+                                      </Tooltip>
+                                    )}
+                                    <Menu>
+                                      <Menu.Trigger>
+                                        <Button variant="secondary" size="small">
+                                          Translate ({missingLocales.length}) ✦
+                                        </Button>
+                                      </Menu.Trigger>
+                                      <Menu.List>
+                                        {missingLocales.map((l) => (
+                                          <Menu.Item key={l} onClick={() => handleTranslate(row.id, l, defaultLocale)}>
+                                            → {l}
+                                          </Menu.Item>
+                                        ))}
+                                        <Menu.Divider />
+                                        <Menu.Item onClick={() => missingLocales.forEach((l) => handleTranslate(row.id, l, defaultLocale))}>
+                                          Translate all missing
+                                        </Menu.Item>
+                                      </Menu.List>
+                                    </Menu>
+                                  </Flex>
+                                )
+                              )}
+                              {/* Status + Publish */}
+                              {isDraft ? (
+                                <Flex gap="spacingXs" alignItems="center">
+                                  <Badge variant="warning">Draft</Badge>
+                                  <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
+                                    Publish
+                                  </Button>
+                                </Flex>
+                              ) : hasUnpublishedChanges ? (
+                                <Flex gap="spacingXs" alignItems="center">
+                                  <Badge variant="warning">Changed</Badge>
+                                  <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
+                                    Publish
+                                  </Button>
+                                </Flex>
+                              ) : missingLocales.length > 0 ? (
+                                <Flex gap="spacingXs" alignItems="center">
+                                  <Badge variant="positive">Published</Badge>
+                                  <Button variant="secondary" size="small" onClick={() => handlePublish(row.id)}>
+                                    Re-publish
+                                  </Button>
+                                </Flex>
+                              ) : (
+                                <Badge variant="positive">Published</Badge>
+                              )}
+                            </Flex>
                           )}
                         </td>
                       </tr>
@@ -470,7 +487,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
           {translationActionId && entries.some((e) => locales.some((l) => l !== defaultLocale && !e.locales[l])) && (
             <Note variant="neutral">
               <Text fontSize="fontSizeS">
-                Translate buttons save changes as drafts — review and publish when ready.
+                Translate saves a draft — use <strong>Publish</strong> (or <strong>Re-publish</strong>) in the same row to push the translation live.
               </Text>
             </Note>
           )}
