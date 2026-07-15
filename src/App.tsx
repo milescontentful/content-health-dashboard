@@ -5,11 +5,13 @@ import { QueryProvider } from './providers/QueryProvider';
 import ConfigScreen from './locations/ConfigScreen';
 import Page from './locations/Page';
 import Home from './locations/Home';
+import Sidebar from './locations/Sidebar';
 
 const ComponentLocationSettings = {
   [locations.LOCATION_APP_CONFIG]: ConfigScreen,
   [locations.LOCATION_PAGE]: Page,
   [locations.LOCATION_HOME]: Home,
+  [locations.LOCATION_ENTRY_SIDEBAR]: Sidebar,
 };
 
 const App = () => {

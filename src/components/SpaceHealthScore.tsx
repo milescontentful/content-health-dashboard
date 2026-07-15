@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Flex, Text, Badge, Button, Tooltip } from '@contentful/f36-components';
 import { DownloadSimpleIcon } from '@contentful/f36-icons';
 import tokens from '@contentful/f36-tokens';
 import { downloadCsv, formatDateForCsv } from '../lib/csv';
+import { ScoreRing, statusColor } from './ScoreRing';
 import {
   buildDimensions,
   computeSpaceHealth,
@@ -14,15 +14,6 @@ import {
   fetchAssetScan,
 } from '../modules/asset-health/assetHealthLogic';
 import type { AppInstallationParameters } from '../modules/types';
-
-// Status colors validated for ≥3:1 contrast on white (dataviz six-checks):
-// green500 / yellow700 / red600. Score + grade text always accompany the
-// color, so state is never encoded by color alone.
-function statusColor(score: number): string {
-  if (score >= 80) return tokens.green500;
-  if (score >= 60) return tokens.yellow700;
-  return tokens.red600;
-}
 
 /** Lightweight broken-reference sample: verify every link in the 50 most
  *  recently published entries via sys.id[in] existence queries. */
@@ -70,41 +61,6 @@ async function fetchBrokenRefSample(cma: any): Promise<{ broken: number; sampled
     broken: missingEntries + missingAssets,
     sampledLinks: linkedEntryIds.size + linkedAssetIds.size,
   };
-}
-
-function ScoreRing({ score, grade }: { score: number; grade: string }) {
-  const R = 52;
-  const STROKE = 9;
-  const C = 2 * Math.PI * R;
-  // Animate the arc sweeping in on mount / score change
-  const [drawn, setDrawn] = useState(0);
-  useEffect(() => {
-    const t = requestAnimationFrame(() => setDrawn(score));
-    return () => cancelAnimationFrame(t);
-  }, [score]);
-  const color = statusColor(score);
-
-  return (
-    <div style={{ position: 'relative', width: 132, height: 132, flexShrink: 0 }}>
-      <svg width={132} height={132} role="img" aria-label={`Space health score ${score} out of 100, grade ${grade}`}>
-        <circle cx={66} cy={66} r={R} fill="none" stroke={tokens.gray200} strokeWidth={STROKE} />
-        <circle
-          cx={66} cy={66} r={R} fill="none"
-          stroke={color} strokeWidth={STROKE} strokeLinecap="round"
-          strokeDasharray={C}
-          strokeDashoffset={C * (1 - drawn / 100)}
-          transform="rotate(-90 66 66)"
-          style={{ transition: 'stroke-dashoffset 0.9s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.3s' }}
-        />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 34, fontWeight: 700, lineHeight: 1, color: tokens.gray900, fontVariantNumeric: 'tabular-nums' }}>
-          {score}
-        </span>
-        <span style={{ fontSize: 12, fontWeight: 600, color, letterSpacing: 0.5 }}>GRADE {grade}</span>
-      </div>
-    </div>
-  );
 }
 
 function DimensionRow({ dim, onNavigate }: { dim: HealthDimension; onNavigate?: (moduleId: string) => void }) {
