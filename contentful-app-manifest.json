@@ -51,6 +51,19 @@
       "accepts": [
         "appaction.call"
       ]
+    },
+    {
+      "id": "onEntryPublish",
+      "name": "Auto-grade on Publish",
+      "description": "Grades an entry when it is published and posts the score as a comment on the entry.",
+      "path": "functions/onEntryPublish.js",
+      "entryFile": "functions/onEntryPublish.ts",
+      "allowNetworks": [
+        "api.openai.com"
+      ],
+      "accepts": [
+        "appevent.handler"
+      ]
     }
   ],
   "actions": [
