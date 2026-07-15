@@ -12,7 +12,23 @@ Forked from Contentful's open-source [`content-insights`](https://github.com/con
 https://app.contentful.com/deeplink?link=apps&id=4AN7Y3TNUkq1aglEP5DnFY
 ```
 
-Install to any space in your Contentful org. The app renders at the **Home**, **Page**, and **App Config** locations. After installing, open Config Screen to enable modules, configure AI Action IDs, and optionally set up App Functions.
+Install to any space in your Contentful org. The app renders at the **Home**, **Page**, **Entry Sidebar**, and **App Config** locations. After installing, open Config Screen to enable modules, configure AI Action IDs, and optionally set up App Functions.
+
+---
+
+## Space Health Score
+
+The headline feature: one **0–100 composite score with a letter grade** for the whole space, computed from six weighted dimensions — reference integrity, asset health, content freshness, localization coverage, SEO/GEO readiness, and taxonomy adoption. It renders as an animated hero on **Home** and as the **Overview** tab on the Page location, with a ranked **"What to fix first"** action list that deep-links into the relevant module, plus an exportable CSV health report.
+
+The computation (`src/lib/healthScore.ts`) is a pure function over plain data — deliberately, so a future **organization app location** can run it once per space and roll health up across an entire org.
+
+## Entry Sidebar — live health while you write
+
+Add the app to any content type's sidebar and editors get a **live health score for the entry they're editing**: completeness, SEO/AEO/GEO signals, and alt-text coverage of linked assets, re-scored as they type. One click grades the entry with AI (via the `gradeContent` App Function) and shows a quality score with concrete suggestions.
+
+## Auto-grade on publish
+
+With an App Event Subscription (one command, see setup), every published entry is graded server-side and the result lands as a **comment on the entry** — "🩺 Content Health: 72/100" with top suggestions — right where editors work. Zero content model changes.
 
 ---
 
@@ -46,6 +62,7 @@ Four App Functions run on Contentful's infrastructure — no Vercel, no Lambda, 
 | `generateAltText` | Generates accessible alt text for an asset image via a Contentful AI Action |
 | `gradeContent` | Scores content quality (0–100), returns a summary, actionable suggestions, and optional brand voice alignment score |
 | `seoAudit` | Enriches heuristic SEO/AEO/GEO scores with LLM semantic analysis and returns AI-rewritten meta title + description suggestions |
+| `onEntryPublish` | App Event handler — grades an entry on publish and posts the score as a comment on the entry |
 
 ### Setup (one-time per org)
 
@@ -62,7 +79,7 @@ Four App Functions run on Contentful's infrastructure — no Vercel, no Lambda, 
    ```
    This creates/updates all four App Actions and writes their `sys.id` values back into the manifest.
 
-3. **Set OpenAI API key** (optional — only needed for `gradeContent` and `seoAudit` LLM enhancement) — store as a **private installation parameter** so it is never exposed to the browser:
+3. **Set OpenAI API key** (optional — only needed when no Contentful AI Action is configured) — enter it in **Config Screen → App Functions → OpenAI API key**, or set it via CLI:
    ```bash
    contentful app-installation update \
      --space-id <SPACE_ID> \
@@ -72,6 +89,13 @@ Four App Functions run on Contentful's infrastructure — no Vercel, no Lambda, 
    ```
 
 4. **Configure in Config Screen** — go to **Config Screen → App Functions** and enter the App Action IDs or Contentful AI Action IDs for Translation, Alt Text, Content Audit, and SEO / GEO Audit.
+
+5. **Auto-grade on publish** (optional) — subscribe the app to `Entry.publish` events targeting the `onEntryPublish` function:
+   ```bash
+   npm run setup-events
+   ```
+
+6. **Entry sidebar** (optional) — add the **Entry sidebar** location to the app definition (`npm run add-locations` or the web UI), then enable the app in a content type's sidebar via the editor's Sidebar settings.
 
 > **No OpenAI key?** Translation and alt text use Contentful's native AI Actions — no external key needed. The App Functions proxy them server-side to work around the iframe restriction.
 
@@ -91,6 +115,7 @@ All settings are saved to installation parameters via the Config Screen:
 | **Personalization** | Optional Ninetailed Management API key |
 | **Contentful Analytics** | Optional Contentful Analytics API key |
 | **Reference Risk** | Top-level content types to exclude from orphaned entry detection |
+| **Asset Health** | Alt text sources — native asset fields and/or wrapper content type fields (e.g. `assetWrapper.caption`) |
 
 ---
 
@@ -123,6 +148,13 @@ npm start
 # → http://localhost:3000
 ```
 
+**Demo mode / standalone development** — run the whole app outside Contentful on a seeded demo space (no login, stable data — great for screenshots and prospect demos):
+
+```bash
+VITE_MOCK_SDK=1 npm start
+# → http://localhost:3000/?loc=home | ?loc=page | ?loc=config | ?loc=sidebar
+```
+
 In Contentful: **Apps → Manage apps → your app definition → Edit → set App URL to `http://localhost:3000`**. Install to a space, open it from the left nav.
 
 > App Functions cannot be tested locally — they require an uploaded bundle. Run `npm run build:all && npm run upload` to test function-backed features.
@@ -153,9 +185,10 @@ npm run upload      # uploads bundle to Contentful CDN (interactive)
 ```
 src/
 ├── locations/
-│   ├── ConfigScreen.tsx      # 8-section config
-│   ├── Home.tsx              # Draggable widget grid
-│   └── Page.tsx              # Tabbed page shell
+│   ├── ConfigScreen.tsx      # 10-section config
+│   ├── Home.tsx              # Space Health hero + draggable widget grid
+│   ├── Page.tsx              # Overview tab + tabbed module shell
+│   └── Sidebar.tsx           # Live per-entry health score
 ├── modules/
 │   ├── types.ts              # AppInstallationParameters, DashboardModule
 │   ├── registry.ts           # Module registration + getEnabledModules()
@@ -171,15 +204,24 @@ src/
 │   ├── production-metrics/
 │   └── custom-content/
 ├── lib/
+│   ├── healthScore.ts        # Pure Space Health computation (org-rollup ready)
 │   ├── aiActions.ts          # invokeAppActionAndWait, invokeAiActionAndWait helpers
 │   ├── appActions.ts         # App Action sys.id lookup from manifest
+│   ├── completeness.ts       # Field completeness heuristics
+│   ├── entryTitle.ts         # Safe entry title extraction
+│   ├── richText.ts           # Rich text → plain text
 │   ├── csv.ts
 │   └── openInNewTab.ts
+├── dev/
+│   └── mockToolkit.tsx       # VITE_MOCK_SDK=1 demo mode (seeded fake space)
 functions/
 ├── translateFields.ts        # App Function: translate entry fields server-side
 ├── generateAltText.ts        # App Function: generate alt text for an asset
 ├── gradeContent.ts           # App Function: AI content quality scoring
 ├── seoAudit.ts               # App Function: LLM-enhanced SEO/GEO scoring
+├── onEntryPublish.ts         # App Event handler: grade on publish → entry comment
+├── _grading.ts               # Shared LLM grading core
+├── _params.ts                # Shared installation-parameter access
 └── _aiActionProxy.ts         # Shared: proxies Contentful AI Actions server-side
 contentful-app-manifest.json  # App Functions + App Actions manifest
 ```
