@@ -103,6 +103,9 @@ export interface AssetScan {
   totalAssets: number; // total in space (rows may be a truncated sample)
   totalEntries: number;
   scannedEntries: number;
+  /** Raw scanned entries + locale codes — reused by the Space Health Score. */
+  entries: any[];
+  locales: string[];
 }
 
 // ponytail: entries capped at 2000 (2 pages) — the UI reports scanned/total
@@ -142,5 +145,7 @@ export async function fetchAssetScan(cma: any, altTextSources: AltTextSource[]):
     totalAssets: assets.total,
     totalEntries: entries.total,
     scannedEntries: entries.items.length,
+    entries: entries.items,
+    locales: localesRes.items.map((l: any) => l.code),
   };
 }
