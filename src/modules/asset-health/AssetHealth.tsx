@@ -199,7 +199,7 @@ export function AssetHealth({ installationParams }: ModuleProps) {
                       </Flex>
                     </Table.Cell>
                     <Table.Cell><Text fontColor="gray500" fontSize="fontSizeS">{a.contentType}</Text></Table.Cell>
-                    <Table.Cell><Badge variant={a.size > SIZE_WARNING_BYTES ? 'warning' : 'secondary'}>{formatBytes(a.size)}</Badge></Table.Cell>
+                    <Table.Cell><Badge variant={a.size > SIZE_WARNING_BYTES ? 'warning' : 'secondary'} style={{ textTransform: 'none' }}>{formatBytes(a.size)}</Badge></Table.Cell>
                     <Table.Cell><Badge variant={a.hasAltText ? 'positive' : 'negative'}>{a.hasAltText ? 'Yes' : 'Missing'}</Badge></Table.Cell>
                   </Table.Row>
                 ))}
@@ -242,7 +242,7 @@ export function AssetHealth({ installationParams }: ModuleProps) {
                       </Flex>
                     </Table.Cell>
                     <Table.Cell><Text fontColor="gray500" fontSize="fontSizeS">{a.contentType}</Text></Table.Cell>
-                    <Table.Cell><Badge variant={a.size > SIZE_WARNING_BYTES ? 'warning' : 'secondary'}>{formatBytes(a.size)}</Badge></Table.Cell>
+                    <Table.Cell><Badge variant={a.size > SIZE_WARNING_BYTES ? 'warning' : 'secondary'} style={{ textTransform: 'none' }}>{formatBytes(a.size)}</Badge></Table.Cell>
                     <Table.Cell>
                       {altTextActionId && a.contentType.startsWith('image/') && a.url ? (
                         <Flex gap="spacingXs" alignItems="center">
@@ -290,7 +290,7 @@ export function AssetHealth({ installationParams }: ModuleProps) {
                       </Flex>
                     </Table.Cell>
                     <Table.Cell><Text fontColor="gray500" fontSize="fontSizeS">{a.contentType}</Text></Table.Cell>
-                    <Table.Cell><Badge variant="warning">{formatBytes(a.size)}</Badge></Table.Cell>
+                    <Table.Cell><Badge variant="warning" style={{ textTransform: 'none' }}>{formatBytes(a.size)}</Badge></Table.Cell>
                     <Table.Cell><Badge variant={a.hasAltText ? 'positive' : 'negative'}>{a.hasAltText ? 'Yes' : 'Missing'}</Badge></Table.Cell>
                   </Table.Row>
                 ))}

@@ -273,7 +273,7 @@ const fieldApis = Object.fromEntries(
     f.id,
     {
       getValue: () => (sidebarEntry.fields as any)[f.id]?.['en-US'],
-      onValueChanged: (_cb: any) => () => {},
+      onValueChanged: () => () => {},
       setValue: async () => {},
     },
   ]),
@@ -301,7 +301,7 @@ const sdk: any = {
   entry: {
     fields: fieldApis,
     getSys: () => sidebarEntry.sys,
-    onSysChanged: (_cb: any) => () => {},
+    onSysChanged: () => () => {},
   },
   contentType: CONTENT_TYPES[0],
   user: { firstName: 'Miles', lastName: 'Demo' },

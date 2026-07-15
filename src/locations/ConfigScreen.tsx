@@ -8,7 +8,6 @@ import {
   Switch,
   Text,
   Paragraph,
-  Image,
   Select,
   Tooltip,
   TextInput,
@@ -33,8 +32,6 @@ import {
   CREATOR_VIEW_OPTIONS,
 } from '../utils/consts';
 import { CreatorViewSetting, ConfigField } from '../utils/types';
-import gearImage from '../assets/gear.png';
-import appearanceImage from '../assets/appearance.png';
 import { styles } from './ConfigScreen.styles';
 import { Validator } from '../utils/Validator';
 import TextInputInteger from '../components/TextInputInteger';
@@ -688,7 +685,7 @@ const ConfigScreen = () => {
             <hr style={{ border: 0, borderTop: '1px solid #e5e9ed', margin: '4px 0' }} />
             <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeM">Brand Voice</Text>
             <Text fontColor="gray600" fontSize="fontSizeS">
-              Describe your brand's voice and tone. The AI Content Audit will use this to score tone consistency
+              Describe your brand&apos;s voice and tone. The AI Content Audit will use this to score tone consistency
               alongside quality and completeness.
             </Text>
             <FormControl>

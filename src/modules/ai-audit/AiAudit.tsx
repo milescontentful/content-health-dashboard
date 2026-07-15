@@ -126,8 +126,6 @@ export function AiAudit({ installationParams }: ModuleProps) {
   const actionId: string = installationParams.aiActionId ?? '';
   const brandVoice: string = installationParams.brandVoice ?? '';
   const appId: string = (sdk as any).ids?.app ?? '';
-  const spaceId: string = (sdk as any).ids?.space ?? '';
-  const environmentId: string = (sdk as any).ids?.environment ?? 'master';
 
   const { data: ctData } = useQuery({
     queryKey: ['ai-audit-content-types'],

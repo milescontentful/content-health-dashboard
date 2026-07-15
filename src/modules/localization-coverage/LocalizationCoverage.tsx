@@ -20,10 +20,6 @@ import { APP_ACTION_IDS } from '../../lib/appActions';
 import type { ModuleProps } from '../types';
 import { entryTitle } from '../../lib/entryTitle';
 
-interface LocaleField {
-  [locale: string]: unknown;
-}
-
 interface EntryRow {
   id: string;
   title: string;
@@ -289,7 +285,7 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
                 {nonLocalizedTypes.map((ct) => ct.name).join(', ')}
               </Text>
               <Text fontSize="fontSizeS" fontColor="gray500" as="p" marginTop="spacing2Xs">
-                To enable translation for a content type, mark at least one field as "Localizable" in the Content Model editor.
+                To enable translation for a content type, mark at least one field as &quot;Localizable&quot; in the Content Model editor.
               </Text>
             </Note>
           )}
