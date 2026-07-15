@@ -42,6 +42,7 @@
     "upload-ci": "contentful-app-scripts upload --ci --bundle-dir ./build  --organization-id $CONTENTFUL_ORG_ID --definition-id $CONTENTFUL_APP_DEF_ID --token $CONTENTFUL_ACCESS_TOKEN",
     "upsert-actions": "contentful-app-scripts upsert-actions",
     "setup-events": "tsx src/scripts/setupEventSubscription.ts",
+    "setup-sidebar": "tsx src/scripts/addSidebarLocation.ts",
     "generate-entries": "tsx src/scripts/generateEntries.ts",
     "delete-entries": "tsx src/scripts/deleteEntries.ts"
   },
