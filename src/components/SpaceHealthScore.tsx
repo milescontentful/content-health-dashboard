@@ -97,14 +97,72 @@ function DimensionRow({ dim, onNavigate }: { dim: HealthDimension; onNavigate?: 
   );
 }
 
+/** "What should I fix first?" — worst dimensions become concrete action rows. */
+function ActionItems({ dimensions, onNavigate }: { dimensions: HealthDimension[]; onNavigate?: (moduleId: string) => void }) {
+  const worst = [...dimensions].filter((d) => d.score < 90).sort((a, b) => a.score - b.score).slice(0, 4);
+  if (worst.length === 0) {
+    return (
+      <div style={{ background: '#fff', border: `1px solid ${tokens.gray200}`, borderRadius: 10, padding: '18px 24px' }}>
+        <Text fontWeight="fontWeightDemiBold">Nothing urgent 🎉</Text>
+        <Text fontColor="gray600" fontSize="fontSizeS" as="p">Every health dimension scores 90 or above.</Text>
+      </div>
+    );
+  }
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${tokens.gray200}`, borderRadius: 10, padding: '18px 24px' }}>
+      <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeL" as="p" style={{ marginBottom: 10 }}>
+        What to fix first
+      </Text>
+      <Flex flexDirection="column" gap="spacingXs">
+        {worst.map((d, i) => (
+          <div
+            key={d.id}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '28px 44px 1fr auto',
+              gap: 12,
+              alignItems: 'center',
+              padding: '10px 12px',
+              border: `1px solid ${tokens.gray200}`,
+              borderRadius: 8,
+            }}
+          >
+            <Text fontColor="gray500" fontWeight="fontWeightDemiBold">{i + 1}</Text>
+            <span
+              style={{
+                display: 'inline-block', textAlign: 'center', padding: '2px 0', borderRadius: 6,
+                fontSize: 13, fontWeight: 700, color: '#fff', background: statusColor(d.score),
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {d.score}
+            </span>
+            <div>
+              <Text fontWeight="fontWeightDemiBold" as="p" style={{ margin: 0 }}>{d.label}</Text>
+              <Text fontColor="gray600" fontSize="fontSizeS" as="p" style={{ margin: 0 }}>{d.detail}</Text>
+            </div>
+            {d.moduleId && onNavigate && (
+              <Button size="small" variant="secondary" onClick={() => onNavigate(d.moduleId!)}>
+                Open →
+              </Button>
+            )}
+          </div>
+        ))}
+      </Flex>
+    </div>
+  );
+}
+
 export function SpaceHealthScore({
   sdk,
   installationParams,
   onNavigate,
+  showActionItems = false,
 }: {
   sdk: any;
   installationParams: AppInstallationParameters;
   onNavigate?: (moduleId: string) => void;
+  showActionItems?: boolean;
 }) {
   const altTextSources = installationParams.altTextSources ?? DEFAULT_ALT_TEXT_SOURCES;
 
@@ -158,7 +216,7 @@ export function SpaceHealthScore({
     downloadCsv(`space-health-report-${formatDateForCsv(new Date()).replace(/[ :]/g, '-')}.csv`, headers, rows);
   };
 
-  return (
+  const hero = (
     <div style={{ background: '#fff', border: `1px solid ${tokens.gray200}`, borderRadius: 10, padding: '18px 24px', marginBottom: 20 }}>
       <Flex gap="spacingXl" alignItems="center" flexWrap="wrap">
         {health.overall !== null && health.grade ? (
@@ -190,5 +248,12 @@ export function SpaceHealthScore({
         </div>
       </Flex>
     </div>
+  );
+
+  return (
+    <>
+      {hero}
+      {showActionItems && <ActionItems dimensions={health.dimensions} onNavigate={onNavigate} />}
+    </>
   );
 }

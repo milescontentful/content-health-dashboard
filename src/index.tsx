@@ -9,7 +9,8 @@ import LocalhostWarning from './components/LocalhostWarning';
 const container = document.getElementById('root')!;
 const root = createRoot(container);
 
-if (import.meta.env.DEV && window.self === window.top) {
+// Mock mode (VITE_MOCK_SDK=1) renders the real app on seeded demo data
+if (import.meta.env.DEV && window.self === window.top && !import.meta.env.VITE_MOCK_SDK) {
   // You can remove this if block before deploying your app
   root.render(<LocalhostWarning />);
 } else {

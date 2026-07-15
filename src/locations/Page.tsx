@@ -3,6 +3,7 @@ import { useSDK } from '@contentful/react-apps-toolkit';
 import { PageAppSDK } from '@contentful/app-sdk';
 import { Flex, Text, Spinner } from '@contentful/f36-components';
 import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
+import { SpaceHealthScore } from '../components/SpaceHealthScore';
 import { getEnabledModules } from '../modules/registry';
 import { StudioThemeProvider, useTheme } from '../modules/StudioThemeProvider';
 import type { AppInstallationParameters } from '../modules/types';
@@ -39,6 +40,7 @@ function TabBar({
             style={{
               padding: '12px 16px',
               fontSize: '14px',
+              whiteSpace: 'nowrap',
               fontWeight: isActive ? 600 : 400,
               color: isActive ? theme.accentColor : '#6f7e8c',
               background: 'none',
@@ -59,7 +61,9 @@ function TabBar({
 
 const SESSION_KEY = 'chd-nav-module';
 
-function PageShell({ params }: { params: AppInstallationParameters }) {
+const OVERVIEW_TAB = { id: 'overview', label: 'Overview' };
+
+function PageShell({ params, sdk }: { params: AppInstallationParameters; sdk: any }) {
   const theme = params.theme ?? DEFAULT_THEME;
   const enabledModules = getEnabledModules(params);
 
@@ -73,14 +77,12 @@ function PageShell({ params }: { params: AppInstallationParameters }) {
     // Also support ?module= query param
     const param = new URLSearchParams(window.location.search).get('module');
     if (param && enabledModules.some((m) => m.id === param)) return param;
-    return enabledModules[0]?.id ?? '';
+    return OVERVIEW_TAB.id;
   });
 
   useEffect(() => {
-    if (!activeId && enabledModules.length > 0) {
-      setActiveId(enabledModules[0].id);
-    }
-  }, [enabledModules, activeId]);
+    if (!activeId) setActiveId(OVERVIEW_TAB.id);
+  }, [activeId]);
 
   if (enabledModules.length === 0) {
     return (
@@ -134,12 +136,16 @@ function PageShell({ params }: { params: AppInstallationParameters }) {
                 {theme.dashboardTitle}
               </Text>
             </Flex>
-            <TabBar modules={enabledModules} activeId={activeId} onSelect={setActiveId} />
+            <TabBar modules={[OVERVIEW_TAB, ...enabledModules]} activeId={activeId} onSelect={setActiveId} />
           </header>
 
           {/* Active module — white background prevents bg-image bleed */}
           <main style={{ padding: '24px 32px', background: 'rgba(255,255,255,0.97)', minHeight: 'calc(100vh - 100px)' }}>
-            {ActiveModule ? (
+            {activeId === OVERVIEW_TAB.id ? (
+              <ModuleErrorBoundary moduleLabel="Overview">
+                <SpaceHealthScore sdk={sdk} installationParams={params} onNavigate={setActiveId} showActionItems />
+              </ModuleErrorBoundary>
+            ) : ActiveModule ? (
               <ModuleErrorBoundary key={ActiveModule.id} moduleLabel={ActiveModule.label}>
                 <ActiveModule.component installationParams={params} />
               </ModuleErrorBoundary>
@@ -163,7 +169,7 @@ const Page = () => {
   }, [sdk]);
 
   const params = (sdk.parameters?.installation ?? {}) as AppInstallationParameters;
-  return <PageShell params={params} />;
+  return <PageShell params={params} sdk={sdk} />;
 };
 
 export default Page;
