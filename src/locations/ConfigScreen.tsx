@@ -579,7 +579,7 @@ const ConfigScreen = () => {
             <FormControl>
               <FormControl.Label>Content Audit — App Action ID</FormControl.Label>
               <TextInput
-                value={(parameters as any).aiActionId ?? ''}
+                value={parameters.aiActionId ?? ''}
                 onChange={(e) => setParameters((p) => ({ ...p, aiActionId: e.target.value }))}
                 placeholder="grade-content"
               />
@@ -628,6 +628,21 @@ const ConfigScreen = () => {
               )}
             </FormControl>
 
+            <FormControl>
+              <FormControl.Label>OpenAI API key <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <TextInput
+                type="password"
+                value={parameters.openAiApiKey ?? ''}
+                onChange={(e) => setParameters((p) => ({ ...p, openAiApiKey: e.target.value.trim() }))}
+                placeholder="sk-…"
+              />
+              <FormControl.HelpText>
+                Fallback for functions when no AI Action ID is set — the key is only read
+                server-side by App Functions, but like any installation parameter it is
+                visible to space admins.
+              </FormControl.HelpText>
+            </FormControl>
+
           </Flex>
         )}
 
@@ -660,7 +675,7 @@ const ConfigScreen = () => {
             <FormControl>
               <FormControl.Label>SEO / GEO Audit — App Action ID <Badge variant="secondary">Optional</Badge></FormControl.Label>
               <TextInput
-                value={(parameters as any).seoAuditActionId ?? ''}
+                value={parameters.seoAuditActionId ?? ''}
                 onChange={(e) => setParameters((p) => ({ ...p, seoAuditActionId: e.target.value.trim() }))}
                 placeholder="seo-audit"
               />
@@ -706,7 +721,7 @@ const ConfigScreen = () => {
               No key needed for experience coverage, audiences, and content type heatmap.
             </Note>
             <FormControl>
-              <FormControl.Label>Ninetailed Management API key <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <FormControl.Label>Ninetailed Management API key <Badge variant="warning">Not yet wired</Badge></FormControl.Label>
               <TextInput
                 value={parameters.ninetailedApiKey ?? ''}
                 onChange={(e) => setParameters((p) => ({ ...p, ninetailedApiKey: e.target.value }))}
@@ -748,7 +763,7 @@ const ConfigScreen = () => {
               </Text>
             </Note>
             <FormControl>
-              <FormControl.Label>Contentful Analytics API key <Badge variant="secondary">Optional</Badge></FormControl.Label>
+              <FormControl.Label>Contentful Analytics API key <Badge variant="warning">Not yet wired</Badge></FormControl.Label>
               <TextInput
                 value={parameters.analyticsApiKey ?? ''}
                 onChange={(e) => setParameters((p) => ({ ...p, analyticsApiKey: e.target.value }))}

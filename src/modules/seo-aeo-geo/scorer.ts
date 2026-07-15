@@ -4,6 +4,8 @@
  * a score 0–100 plus a list of issues.
  */
 
+import { extractRichText } from '../../lib/richText';
+
 export interface ScoreResult {
   score: number;
   issues: string[];
@@ -24,12 +26,6 @@ function flatValues(fields: Fields, locale: string): string[] {
       return '';
     })
     .filter(Boolean);
-}
-
-function extractRichText(node: any): string {
-  if (node.nodeType === 'text') return node.value ?? '';
-  if (node.content) return node.content.map(extractRichText).join(' ');
-  return '';
 }
 
 function getFieldValue(fields: Fields, locale: string, fieldId: string): string {

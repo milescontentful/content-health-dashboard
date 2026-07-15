@@ -24,6 +24,7 @@ import { StudioThemeProvider } from '../modules/StudioThemeProvider';
 import type { AltTextSource, AppInstallationParameters, DashboardModule } from '../modules/types';
 import { DEFAULT_THEME } from '../modules/types';
 import { DEFAULT_ALT_TEXT_SOURCES, fetchAssetScan } from '../modules/asset-health/assetHealthLogic';
+import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 // Side-effect: registers all modules
 import '../modules';
 
@@ -76,7 +77,9 @@ function SortableWidget({
       >
         ⠿
       </div>
-      <Widget installationParams={params} onNavigate={onNavigate} />
+      <ModuleErrorBoundary moduleLabel={mod.label}>
+        <Widget installationParams={params} onNavigate={onNavigate} />
+      </ModuleErrorBoundary>
     </div>
   );
 }

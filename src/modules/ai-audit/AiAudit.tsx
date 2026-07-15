@@ -12,7 +12,7 @@
  *   https://www.contentful.com/developers/docs/extensibility/app-framework/functions/#use-case-app-actions
  *   https://www.contentful.com/developers/docs/extensibility/app-framework/working-with-functions/
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useSDK } from '@contentful/react-apps-toolkit';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -32,11 +32,8 @@ import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { invokeAppActionAndWait } from '../../lib/aiActions';
 import { APP_ACTION_IDS } from '../../lib/appActions';
 import type { ModuleProps } from '../types';
-
-interface CompletenessIssue {
-  field: string;
-  issue: string;
-}
+import { extractRichText } from '../../lib/richText';
+import { checkCompleteness, type CompletenessIssue } from '../../lib/completeness';
 
 interface GradeResult {
   entryId: string;
@@ -54,29 +51,6 @@ interface GradeResult {
 function ScoreBadge({ score }: { score: number }) {
   const variant = score >= 75 ? 'positive' : score >= 50 ? 'warning' : 'negative';
   return <Badge variant={variant}>{score}</Badge>;
-}
-
-function checkCompleteness(
-  entry: any,
-  ct: { fields: Array<{ id: string; name: string; type: string; required?: boolean }> },
-  defaultLocale: string,
-): CompletenessIssue[] {
-  const issues: CompletenessIssue[] = [];
-  for (const field of ct.fields) {
-    const val = entry.fields[field.id]?.[defaultLocale];
-    const isEmpty = val === undefined || val === null || val === '' ||
-      (Array.isArray(val) && val.length === 0) ||
-      (typeof val === 'object' && val !== null && val.nodeType === 'document' && val.content?.length === 0);
-    if (isEmpty) {
-      issues.push({
-        field: field.name,
-        issue: field.required ? 'Required field is empty' : 'Optional field is empty',
-      });
-    } else if ((field.type === 'Symbol' || field.type === 'Text') && typeof val === 'string' && val.trim().length < 10) {
-      issues.push({ field: field.name, issue: 'Value is very short (< 10 chars)' });
-    }
-  }
-  return issues;
 }
 
 function SimpleProgress({ value }: { value: number }) {
@@ -115,9 +89,10 @@ function SetupGuide({ appId }: { appId: string }) {
               In your App Definition Actions tab, add an action with ID <code>grade-content</code>,
               type <strong>Function invocation</strong>, linked to the <code>gradeContent</code> function.
             </Text>
-            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">3. Set OpenAI API key</Text>
+            <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">3. Set OpenAI API key (or use an AI Action)</Text>
             <Text fontSize="fontSizeS">
-              Add a private installation parameter <code>openAiApiKey</code> via the CMA.
+              Enter it in <strong>Config Screen → App Functions → OpenAI API key</strong>, or set a private
+              installation parameter <code>openAiApiKey</code> via the CMA.
               App Definition ID: <code style={{ background: '#f1f3f4', padding: '1px 4px' }}>{appId || '<your-app-def-id>'}</code>
             </Text>
             <Text fontSize="fontSizeS" fontWeight="fontWeightDemiBold">4. Enter the action ID</Text>
@@ -142,11 +117,12 @@ export function AiAudit({ installationParams }: ModuleProps) {
   const [titleField, setTitleField] = useState('');
   const [bodyField, setBodyField] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const cancelRef = useRef(false);
   const [results, setResults] = useState<GradeResult[]>([]);
   const [selectedResult, setSelectedResult] = useState<GradeResult | null>(null);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
 
-  const actionId: string = (installationParams as any).aiActionId ?? '';
+  const actionId: string = installationParams.aiActionId ?? '';
   const brandVoice: string = installationParams.brandVoice ?? '';
   const appId: string = (sdk as any).ids?.app ?? '';
   const spaceId: string = (sdk as any).ids?.space ?? '';
@@ -181,9 +157,7 @@ export function AiAudit({ installationParams }: ModuleProps) {
     const entries = entriesRes.items;
     setProgress({ done: 0, total: entries.length });
 
-    const allResults: GradeResult[] = [];
-
-    for (const entry of entries) {
+    const gradeEntry = async (entry: any): Promise<GradeResult> => {
       const firstFieldVal = Object.values(entry.fields)[0] as any;
       const title = titleField
         ? String(entry.fields[titleField]?.[defaultLocale] ?? entry.sys.id)
@@ -202,23 +176,17 @@ export function AiAudit({ installationParams }: ModuleProps) {
         : [];
 
       try {
-        let payload: { score: number; summary: string; suggestions: string[]; toneScore?: number; toneFeedback?: string };
-
-        payload = await invokeAppActionAndWait(
-          sdk.cma,
-          appId,
-          APP_ACTION_IDS.gradeContent,
-          {
+        const payload: { score: number; summary: string; suggestions: string[]; toneScore?: number; toneFeedback?: string } =
+          await invokeAppActionAndWait(sdk.cma, appId, APP_ACTION_IDS.gradeContent, {
             entryId: entry.sys.id,
             title,
             body: body.slice(0, 3000),
             contentType: contentTypeId,
             brandVoice: brandVoice || undefined,
             aiActionId: actionId || undefined,
-          },
-        );
+          });
 
-        allResults.push({
+        return {
           entryId: entry.sys.id,
           title,
           score: typeof payload.score === 'number' ? payload.score : 0,
@@ -228,9 +196,9 @@ export function AiAudit({ installationParams }: ModuleProps) {
           toneFeedback: payload.toneFeedback,
           completenessIssues,
           status: 'done',
-        });
+        };
       } catch (err: any) {
-        allResults.push({
+        return {
           entryId: entry.sys.id,
           title,
           score: 0,
@@ -239,15 +207,27 @@ export function AiAudit({ installationParams }: ModuleProps) {
           completenessIssues,
           status: 'error',
           error: err?.message ?? 'Unknown error',
-        });
+        };
       }
+    };
 
-      setProgress((p) => ({ ...p, done: p.done + 1 }));
-      setResults([...allResults]);
-    }
+    // Promise pool: CONCURRENCY entries grade at once; Cancel stops picking up
+    // new entries (in-flight ones finish and still report).
+    cancelRef.current = false;
+    const CONCURRENCY = 4;
+    let nextIndex = 0;
+    const worker = async () => {
+      while (!cancelRef.current && nextIndex < entries.length) {
+        const entry = entries[nextIndex++];
+        const result = await gradeEntry(entry);
+        setProgress((p) => ({ ...p, done: p.done + 1 }));
+        setResults((prev) => [...prev, result]);
+      }
+    };
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
     setIsRunning(false);
-  }, [sdk, contentTypeId, titleField, bodyField, actionId, appId, spaceId, environmentId]);
+  }, [sdk, contentTypeId, titleField, bodyField, actionId, appId, brandVoice, selectedCt]);
 
   const handleExport = () => {
     if (!results.length) return;
@@ -316,6 +296,11 @@ export function AiAudit({ installationParams }: ModuleProps) {
           >
             {isRunning ? `Auditing… ${progress.done}/${progress.total}` : 'Run audit'}
           </Button>
+          {isRunning && (
+            <Button variant="secondary" onClick={() => { cancelRef.current = true; }}>
+              Cancel
+            </Button>
+          )}
         </Flex>
 
         {!actionId && (
@@ -451,12 +436,4 @@ export function AiAudit({ installationParams }: ModuleProps) {
       )}
     </Flex>
   );
-}
-
-/** Recursively extract plain text from a Contentful Rich Text document */
-function extractRichText(node: any): string {
-  if (!node) return '';
-  if (typeof node.value === 'string') return node.value;
-  if (Array.isArray(node.content)) return node.content.map(extractRichText).join(' ');
-  return '';
 }

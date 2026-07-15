@@ -94,6 +94,11 @@ export interface AppInstallationParameters {
   altTextActionId?: string;        // generate-alt-text action (App Function or Contentful AI Action)
   seoAuditActionId?: string;       // seo-audit action (App Function — LLM-enhanced SEO/GEO)
 
+  // OpenAI API key used by App Functions when no Contentful AI Action is
+  // configured. Read server-side only; visible to space admins like any
+  // installation parameter.
+  openAiApiKey?: string;
+
   // Asset Health — configurable alt text sources
   // Each source defines a content type + field to check for alt text.
   // Use '__asset__' as contentType to check a field directly on the native asset.

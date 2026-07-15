@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSDK } from '@contentful/react-apps-toolkit';
 import { PageAppSDK } from '@contentful/app-sdk';
 import { Flex, Text, Spinner } from '@contentful/f36-components';
+import { ModuleErrorBoundary } from '../components/ModuleErrorBoundary';
 import { getEnabledModules } from '../modules/registry';
 import { StudioThemeProvider, useTheme } from '../modules/StudioThemeProvider';
 import type { AppInstallationParameters } from '../modules/types';
@@ -139,7 +140,9 @@ function PageShell({ params }: { params: AppInstallationParameters }) {
           {/* Active module — white background prevents bg-image bleed */}
           <main style={{ padding: '24px 32px', background: 'rgba(255,255,255,0.97)', minHeight: 'calc(100vh - 100px)' }}>
             {ActiveModule ? (
-              <ActiveModule.component installationParams={params} />
+              <ModuleErrorBoundary key={ActiveModule.id} moduleLabel={ActiveModule.label}>
+                <ActiveModule.component installationParams={params} />
+              </ModuleErrorBoundary>
             ) : (
               <Flex justifyContent="center" style={{ paddingTop: '48px' }}>
                 <Spinner />
