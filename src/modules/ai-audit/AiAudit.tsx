@@ -138,9 +138,13 @@ export function AiAudit({ installationParams }: ModuleProps) {
     },
   });
 
-  // Land ready: pre-select the first content type (audit still runs on demand)
+  // Land ready: pre-select a content type worth grading — prefer one with a
+  // long-form body field (Text/RichText). Audit still runs on demand.
   useEffect(() => {
-    if (!contentTypeId && ctData?.length) setContentTypeId(ctData[0].sys.id);
+    if (!contentTypeId && ctData?.length) {
+      const withBody = ctData.find((ct) => ct.fields.some((f) => f.type === 'Text' || f.type === 'RichText'));
+      setContentTypeId((withBody ?? ctData[0]).sys.id);
+    }
   }, [ctData, contentTypeId]);
 
   const selectedCt = ctData?.find((ct) => ct.sys.id === contentTypeId);
@@ -437,7 +441,7 @@ export function AiAudit({ installationParams }: ModuleProps) {
       )}
 
       {!isRunning && results.length === 0 && contentTypeId && (
-        <Note variant="neutral">Select a content type and click Run audit to analyse up to 25 published entries.</Note>
+        <Note variant="neutral">Click Run audit to analyse up to 25 published entries of this content type.</Note>
       )}
     </Flex>
   );

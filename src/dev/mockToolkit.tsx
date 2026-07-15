@@ -130,10 +130,10 @@ function makeEntries() {
             title: loc(title, ''),
             body: loc(`${title}: a long-form exploration. ${'Structured content wins. '.repeat(12)}`, '-body'),
             image: { 'en-US': { sys: { type: 'Link', linkType: 'Asset', id: linkedAsset } } },
-            // entry-7 carries a broken reference on purpose
+            // entry-17 carries a broken reference on purpose (demo data)
             relatedPages: {
               'en-US': [
-                { sys: { type: 'Link', linkType: 'Entry', id: i === 7 ? 'entry-deleted' : `entry-${(i + 1) % 20}` } },
+                { sys: { type: 'Link', linkType: 'Entry', id: i === 17 ? 'entry-deleted' : `entry-${(i + 1) % 20}` } },
               ],
             },
           },
