@@ -69,9 +69,20 @@ async function analyseReferences(sdk: ReturnType<typeof useSDK>) {
     if (res.items.length === 0) break;
   }
 
-  // Fetch all published assets (to detect broken asset refs)
-  const assetsRes = await (sdk.cma as any).asset.getMany({ query: { limit: 1000 } });
-  const allAssetIds = new Set<string>(assetsRes.items.map((a: any) => a.sys.id));
+  // Fetch ALL asset IDs, paginated — a truncated list here would flag valid
+  // asset links as broken references.
+  const allAssetIds = new Set<string>();
+  let assetSkip = 0;
+  let assetTotal = Infinity;
+  while (assetSkip < assetTotal) {
+    const res = await (sdk.cma as any).asset.getMany({
+      query: { limit: 1000, skip: assetSkip, select: 'sys.id' },
+    });
+    assetTotal = res.total;
+    res.items.forEach((a: any) => allAssetIds.add(a.sys.id));
+    assetSkip += 1000;
+    if (res.items.length === 0) break;
+  }
   const allEntryIds = new Set<string>(allEntries.map((e: any) => e.sys.id));
 
   const localesRes = await (sdk.cma as any).locale.getMany({});

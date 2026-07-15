@@ -71,7 +71,7 @@ async function fetchEntriesForContentType(
   contentTypeId: string,
   locales: string[],
   defaultLocale: string,
-): Promise<EntryRow[]> {
+): Promise<{ rows: EntryRow[]; total: number }> {
   const [res, ct] = await Promise.all([
     (sdk.cma as any).entry.getMany({
       query: { content_type: contentTypeId, limit: 100, 'sys.publishedAt[exists]': true },
@@ -119,7 +119,8 @@ async function fetchEntriesForContentType(
   });
 
   // Sort alphabetically by resolved (en-US) title
-  return rows.sort((a, b) => a.title.localeCompare(b.title, 'en'));
+  rows.sort((a, b) => a.title.localeCompare(b.title, 'en'));
+  return { rows, total: res.total ?? rows.length };
 }
 
 function CoverageCell({ covered }: { covered: boolean }) {
@@ -156,11 +157,13 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
     queryFn: () => fetchLocalizationData(sdk),
   });
 
-  const { data: entries, isLoading: entriesLoading } = useQuery({
+  const { data: entriesData, isLoading: entriesLoading } = useQuery({
     queryKey: ['localization-entries', selectedCtId],
     queryFn: () => fetchEntriesForContentType(sdk, selectedCtId, meta?.locales ?? [], meta?.defaultLocale ?? 'en-US'),
     enabled: !!selectedCtId && !!meta,
   });
+  const entries = entriesData?.rows;
+  const entriesTotal = entriesData?.total ?? 0;
 
   const handleTranslate = useCallback(async (
     entryId: string,
@@ -340,6 +343,11 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
           </Card>
 
           {/* Heatmap table */}
+          {entriesTotal > entries.length && (
+            <Note variant="neutral">
+              Showing the first {entries.length} of {entriesTotal.toLocaleString()} published entries.
+            </Note>
+          )}
           {entries.length === 0 ? (
             <Note variant="neutral">No published entries found for this content type.</Note>
           ) : (

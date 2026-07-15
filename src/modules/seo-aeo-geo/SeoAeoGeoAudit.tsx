@@ -180,9 +180,9 @@ export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
     ? ctData?.filter((ct) => seoPageContentTypes.includes(ct.sys.id))
     : ctData;
 
-  const { data: auditRows, isLoading } = useQuery({
+  const { data: auditData, isLoading } = useQuery({
     queryKey: ['seo-audit', contentTypeId],
-    queryFn: async (): Promise<AuditRow[]> => {
+    queryFn: async (): Promise<{ rows: AuditRow[]; total: number }> => {
       const localesRes = await (sdk.cma as any).locale.getMany({});
       const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? localesRes.items[0]?.code ?? 'en-US';
 
@@ -199,7 +199,7 @@ export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
         }
       }
 
-      return res.items.map((entry: any) => {
+      const rows = res.items.map((entry: any) => {
         const firstField = Object.values(entry.fields)[0] as any;
         const title = firstField ? String(Object.values(firstField)[0] ?? entry.sys.id) : entry.sys.id;
         const seo = scoreSEO(entry.fields, defaultLocale, fieldNames);
@@ -208,9 +208,11 @@ export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
         const composite = Math.round((seo.score + aeo.score + geo.score) / 3);
         return { id: entry.sys.id, title, seo, aeo, geo, composite };
       });
+      return { rows, total: res.total ?? rows.length };
     },
     enabled: !!contentTypeId && !!ctData,
   });
+  const auditRows = auditData?.rows;
 
   const selectedEntry = auditRows?.find((r) => r.id === selectedEntryId);
 
@@ -282,7 +284,10 @@ export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
             ) : (
               <>
                 <Text fontColor="gray500" fontSize="fontSizeS" marginBottom="spacingS" as="p">
-                  Click an entry to see its full scorecard breakdown. Showing up to 50 published entries, sorted by composite score.
+                  Click an entry to see its full scorecard breakdown. Sorted by composite score.
+                  {auditData && auditData.total > auditRows.length
+                    ? ` Scored the first ${auditRows.length} of ${auditData.total.toLocaleString()} published entries.`
+                    : ''}
                 </Text>
                 <Table>
                   <Table.Head>

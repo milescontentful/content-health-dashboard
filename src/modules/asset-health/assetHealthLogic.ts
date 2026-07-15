@@ -105,25 +105,42 @@ export interface AssetScan {
   scannedEntries: number;
 }
 
+// ponytail: entries capped at 2000 (2 pages) — the UI reports scanned/total
+// honestly; full entry pagination if a real customer space needs it.
+const ENTRY_SCAN_PAGES = 2;
+const PAGE_SIZE = 1000;
+
+async function fetchAllPages(getMany: (query: any) => Promise<any>, maxPages = Infinity): Promise<{ items: any[]; total: number }> {
+  const items: any[] = [];
+  let total = Infinity;
+  for (let page = 0; page * PAGE_SIZE < total && page < maxPages; page++) {
+    const res = await getMany({ limit: PAGE_SIZE, skip: page * PAGE_SIZE });
+    total = res.total ?? res.items.length;
+    items.push(...res.items);
+    if (res.items.length === 0) break;
+  }
+  return { items, total };
+}
+
 /**
  * Shared fetch + compute used by the Asset Health module, Home widget, and
  * health summary bar — one React Query cache entry instead of three fetches.
- * ponytail: single 200-asset / 1000-entry calls for now; pagination lands in Phase 1.
+ * Assets are fully paginated; the entry scan covers the first 2000 entries.
  */
 export async function fetchAssetScan(cma: any, altTextSources: AltTextSource[]): Promise<AssetScan> {
-  const [assetsRes, localesRes, entriesRes] = await Promise.all([
-    cma.asset.getMany({ query: { limit: 200 } }),
+  const [assets, localesRes, entries] = await Promise.all([
+    fetchAllPages((query) => cma.asset.getMany({ query })),
     cma.locale.getMany({}),
-    cma.entry.getMany({ query: { limit: 1000 } }),
+    fetchAllPages((query) => cma.entry.getMany({ query }), ENTRY_SCAN_PAGES),
   ]);
 
   const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? 'en-US';
 
   return {
-    rows: computeAssetRows(assetsRes.items, entriesRes.items, defaultLocale, altTextSources),
+    rows: computeAssetRows(assets.items, entries.items, defaultLocale, altTextSources),
     defaultLocale,
-    totalAssets: assetsRes.total ?? assetsRes.items.length,
-    totalEntries: entriesRes.total ?? entriesRes.items.length,
-    scannedEntries: entriesRes.items.length,
+    totalAssets: assets.total,
+    totalEntries: entries.total,
+    scannedEntries: entries.items.length,
   };
 }
