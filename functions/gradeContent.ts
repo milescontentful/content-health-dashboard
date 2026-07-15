@@ -22,6 +22,7 @@ import {
   FunctionEventContext,
 } from '@contentful/node-apps-toolkit';
 import { proxyAiAction } from './_aiActionProxy';
+import { getOpenAiApiKey } from './_params';
 
 interface GradeContentParams {
   entryId: string;
@@ -109,7 +110,7 @@ export const handler: FunctionEventHandler<FunctionTypeEnum.AppActionCall> = asy
     } satisfies GradeContentResponse;
   }
 
-  const apiKey: string = (context.appInstallationParameters as any)?.openAiApiKey ?? '';
+  const apiKey = getOpenAiApiKey(context);
 
   if (!apiKey) {
     return {

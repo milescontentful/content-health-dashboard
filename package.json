@@ -9,6 +9,7 @@
     "@contentful/f36-icons": "^6.8.0",
     "@contentful/f36-tokens": "4.0.2",
     "@contentful/field-editor-date": "^1.9.21",
+    "@contentful/node-apps-toolkit": "^4.0.1",
     "@contentful/react-apps-toolkit": "1.2.16",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

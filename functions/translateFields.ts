@@ -27,6 +27,7 @@ import {
   FunctionEventContext,
 } from '@contentful/node-apps-toolkit';
 import { proxyAiAction } from './_aiActionProxy';
+import { getOpenAiApiKey } from './_params';
 
 interface TranslateFieldsParams {
   entryId: string;
@@ -77,8 +78,7 @@ export const handler: FunctionEventHandler<FunctionTypeEnum.AppActionCall> = asy
     };
   }
 
-  const privateParams = (context.appInstallationParameters as any)?.private ?? {};
-  const apiKey: string | undefined = privateParams.openAiApiKey;
+  const apiKey = getOpenAiApiKey(context) || undefined;
 
   if (!aiActionId && !apiKey) {
     return {

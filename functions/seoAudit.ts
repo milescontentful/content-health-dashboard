@@ -37,6 +37,7 @@ import {
   FunctionTypeEnum,
   FunctionEventContext,
 } from '@contentful/node-apps-toolkit';
+import { getOpenAiApiKey } from './_params';
 
 interface SeoAuditParams {
   entryId: string;
@@ -97,7 +98,7 @@ export const handler: FunctionEventHandler<FunctionTypeEnum.AppActionCall> = asy
     heuristicIssues = [],
   } = params;
 
-  const apiKey: string = (context.appInstallationParameters as any)?.openAiApiKey ?? '';
+  const apiKey = getOpenAiApiKey(context);
 
   if (!apiKey) {
     const composite = Math.round((heuristicSeoScore * 0.4 + heuristicAeoScore * 0.3 + heuristicGeoScore * 0.3));
