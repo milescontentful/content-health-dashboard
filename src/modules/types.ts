@@ -94,6 +94,12 @@ export interface AppInstallationParameters {
   altTextActionId?: string;        // generate-alt-text action (App Function or Contentful AI Action)
   seoAuditActionId?: string;       // seo-audit action (App Function — LLM-enhanced SEO/GEO)
 
+  // Asset Health — configurable alt text sources
+  // Each source defines a content type + field to check for alt text.
+  // Use '__asset__' as contentType to check a field directly on the native asset.
+  // Example: [{ contentType: '__asset__', field: 'description' }, { contentType: 'assetWrapper', field: 'caption' }]
+  altTextSources?: AltTextSource[];
+
   // Brand voice guidelines — passed to gradeContent for tone consistency analysis
   brandVoice?: string;
 
@@ -126,6 +132,11 @@ export const CONTENTFUL_BRAND_COLORS = [
   { name: 'White', hex: '#FFFFFF' },
   { name: 'Teal', hex: '#00897B' },
 ];
+
+export interface AltTextSource {
+  contentType: string; // '__asset__' for native asset field, or a content type ID (e.g. 'assetWrapper')
+  field: string;       // field ID to check for alt text (e.g. 'description', 'caption', 'altText')
+}
 
 export interface SearchQuery {
   freeText: string;

@@ -18,16 +18,11 @@ import { openAssetInNewTab } from '../../lib/openInNewTab';
 import { invokeAppActionAndWait } from '../../lib/aiActions';
 import { APP_ACTION_IDS } from '../../lib/appActions';
 import type { ModuleProps } from '../types';
-
-interface AssetRow {
-  id: string;
-  title: string;
-  url: string;
-  contentType: string;
-  size: number;
-  hasAltText: boolean;
-  isOrphan: boolean;
-}
+import {
+  DEFAULT_ALT_TEXT_SOURCES,
+  fetchAssetScan,
+  type AssetRow,
+} from './assetHealthLogic';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -36,41 +31,6 @@ function formatBytes(bytes: number): string {
 }
 
 const SIZE_WARNING_BYTES = 500 * 1024;
-
-async function fetchAssets(sdk: ReturnType<typeof useSDK>): Promise<AssetRow[]> {
-  const [assetsRes, localesRes, entriesRes] = await Promise.all([
-    (sdk.cma as any).asset.getMany({ query: { limit: 200 } }),
-    (sdk.cma as any).locale.getMany({}),
-    (sdk.cma as any).entry.getMany({ query: { limit: 1000 } }),
-  ]);
-
-  const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? 'en-US';
-
-  const linkedAssetIds = new Set<string>();
-  for (const entry of entriesRes.items) {
-    for (const fieldVal of Object.values(entry.fields) as any[]) {
-      const v = fieldVal?.[defaultLocale];
-      if (v?.sys?.type === 'Asset') linkedAssetIds.add(v.sys.id);
-      if (Array.isArray(v)) v.forEach((item: any) => { if (item?.sys?.type === 'Asset') linkedAssetIds.add(item.sys.id); });
-    }
-  }
-
-  return assetsRes.items.map((asset: any) => {
-    const fileField = asset.fields?.file?.[defaultLocale];
-    const titleField = asset.fields?.title?.[defaultLocale];
-    const descriptionField = asset.fields?.description?.[defaultLocale];
-    const url: string = fileField?.url ? `https:${fileField.url}` : '';
-    return {
-      id: asset.sys.id,
-      title: titleField ?? asset.sys.id,
-      url,
-      contentType: fileField?.contentType ?? 'unknown',
-      size: fileField?.details?.size ?? 0,
-      hasAltText: !!descriptionField,
-      isOrphan: !linkedAssetIds.has(asset.sys.id),
-    };
-  });
-}
 
 // Compact metric pill — mirrors Content Insights style
 function MetricPill({ label, value, variant }: { label: string; value: number; variant: 'positive' | 'negative' | 'warning' | 'secondary' }) {
@@ -91,15 +51,17 @@ export function AssetHealth({ installationParams }: ModuleProps) {
   const [altErrors, setAltErrors] = useState<Record<string, string>>({});
 
   const altTextActionId = (installationParams.altTextActionId ?? '').trim();
+  const altTextSources = installationParams.altTextSources ?? DEFAULT_ALT_TEXT_SOURCES;
   const appId: string = (sdk as any).ids?.app ?? '';
   const spaceId: string = (sdk as any).ids?.space ?? '';
   const environmentId: string = (sdk as any).ids?.environment ?? 'master';
 
-  const { data: assets, isLoading, refetch } = useQuery({
-    queryKey: ['asset-health'],
-    queryFn: () => fetchAssets(sdk),
+  const { data: scan, isLoading, refetch } = useQuery({
+    queryKey: ['asset-health', altTextSources],
+    queryFn: () => fetchAssetScan(sdk.cma as any, altTextSources),
     staleTime: 5 * 60 * 1000,
   });
+  const assets = scan?.rows;
 
   const handleGenerateAltText = useCallback(async (asset: AssetRow) => {
     setGeneratingAlt((g) => ({ ...g, [asset.id]: true }));
@@ -338,8 +300,10 @@ export function AssetHealth({ installationParams }: ModuleProps) {
         </Tabs.Panel>
       </Tabs>
 
-      {assets.length === 200 && (
-        <Note variant="neutral">Showing first 200 assets.</Note>
+      {scan && scan.totalAssets > assets.length && (
+        <Note variant="neutral">
+          Scanned first {assets.length.toLocaleString()} of {scan.totalAssets.toLocaleString()} assets.
+        </Note>
       )}
     </Flex>
   );

@@ -39,7 +39,7 @@ import { styles } from './ConfigScreen.styles';
 import { Validator } from '../utils/Validator';
 import TextInputInteger from '../components/TextInputInteger';
 import { getModuleConfigs } from '../modules/registry';
-import type { AppInstallationParameters, ModuleConfig, CustomCard, ThemeConfig } from '../modules/types';
+import type { AppInstallationParameters, ModuleConfig, CustomCard, ThemeConfig, AltTextSource } from '../modules/types';
 import { DEFAULT_THEME, CONTENTFUL_BRAND_COLORS } from '../modules/types';
 // Register modules so getModuleConfigs works
 import '../modules';
@@ -329,7 +329,7 @@ const ConfigScreen = () => {
   const [selectedTopLevelCTs, setSelectedTopLevelCTs] = useState<ContentType[]>([]);
   const [selectedSeoCTs, setSelectedSeoCTs] = useState<ContentType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'seo-geo' | 'p13n' | 'contentful-analytics' | 'reference-risk'>('analytics');
+  const [activeSection, setActiveSection] = useState<'analytics' | 'modules' | 'theme' | 'cards' | 'ai' | 'seo-geo' | 'p13n' | 'contentful-analytics' | 'reference-risk' | 'asset-health'>('analytics');
 
   // Module configs derived from params
   const moduleConfigs = getModuleConfigs(parameters);
@@ -425,6 +425,7 @@ const ConfigScreen = () => {
     { id: 'seo-geo', label: 'SEO / GEO' },
     { id: 'p13n', label: 'Personalization' },
     { id: 'contentful-analytics', label: 'Contentful Analytics' },
+    { id: 'asset-health', label: 'Asset Health' },
     { id: 'cards', label: 'Custom Cards' },
     { id: 'theme', label: 'Theme' },
   ] as const;
@@ -760,6 +761,83 @@ const ConfigScreen = () => {
             </FormControl>
           </Flex>
         )}
+
+        {/* ── Asset Health ── */}
+        {activeSection === 'asset-health' && (() => {
+          const sources: AltTextSource[] = parameters.altTextSources ?? [{ contentType: '__asset__', field: 'description' }];
+          const setSources = (next: AltTextSource[]) => setParameters((p) => ({ ...p, altTextSources: next }));
+          return (
+            <Flex flexDirection="column" gap="spacingM">
+              <Heading as="h3" marginBottom="spacingXs">Asset Health — alt text sources</Heading>
+              <Text fontColor="gray600" marginBottom="spacingS">
+                Define where the Asset Health module looks for alt text. Add one row per source.
+                Use <code>__asset__</code> as the content type to check a field directly on the native Contentful asset
+                (e.g. the built-in <code>description</code> field).
+                Add additional rows for wrapper content types that link to assets and carry alt text in a separate field
+                (e.g. <code>assetWrapper</code> → <code>caption</code>).
+              </Text>
+              <Note variant="neutral">
+                <Text fontSize="fontSizeS">
+                  An asset is considered to <strong>have alt text</strong> if <em>any</em> configured source provides a value for it.
+                  Order does not matter.
+                </Text>
+              </Note>
+
+              <Stack flexDirection="column" spacing="spacingXs">
+                {/* Header row */}
+                <Flex gap="spacingS">
+                  <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS" style={{ flex: 1 }}>Content Type ID</Text>
+                  <Text fontWeight="fontWeightDemiBold" fontSize="fontSizeS" style={{ flex: 1 }}>Alt Text Field ID</Text>
+                  <div style={{ width: 32 }} />
+                </Flex>
+
+                {sources.map((source, idx) => (
+                  <Flex key={idx} gap="spacingS" alignItems="center">
+                    <TextInput
+                      value={source.contentType}
+                      onChange={(e) => {
+                        const next = [...sources];
+                        next[idx] = { ...next[idx], contentType: e.target.value.trim() };
+                        setSources(next);
+                      }}
+                      placeholder="__asset__ or assetWrapper"
+                      size="small"
+                      style={{ flex: 1 }}
+                    />
+                    <TextInput
+                      value={source.field}
+                      onChange={(e) => {
+                        const next = [...sources];
+                        next[idx] = { ...next[idx], field: e.target.value.trim() };
+                        setSources(next);
+                      }}
+                      placeholder="description, caption, altText…"
+                      size="small"
+                      style={{ flex: 1 }}
+                    />
+                    <IconButton
+                      variant="transparent"
+                      icon={<TrashSimpleIcon />}
+                      aria-label="Remove source"
+                      size="small"
+                      isDisabled={sources.length === 1}
+                      onClick={() => setSources(sources.filter((_, i) => i !== idx))}
+                    />
+                  </Flex>
+                ))}
+
+                <Button
+                  variant="secondary"
+                  size="small"
+                  startIcon={<PlusIcon />}
+                  onClick={() => setSources([...sources, { contentType: '', field: '' }])}
+                >
+                  Add source
+                </Button>
+              </Stack>
+            </Flex>
+          );
+        })()}
 
         {/* ── Reference Risk ── */}
         {activeSection === 'reference-risk' && (

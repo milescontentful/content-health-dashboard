@@ -21,8 +21,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { getEnabledModules } from '../modules/registry';
 import { StudioThemeProvider } from '../modules/StudioThemeProvider';
-import type { AppInstallationParameters, DashboardModule } from '../modules/types';
+import type { AltTextSource, AppInstallationParameters, DashboardModule } from '../modules/types';
 import { DEFAULT_THEME } from '../modules/types';
+import { DEFAULT_ALT_TEXT_SOURCES, fetchAssetScan } from '../modules/asset-health/assetHealthLogic';
 // Side-effect: registers all modules
 import '../modules';
 
@@ -82,50 +83,74 @@ function SortableWidget({
 
 // ─── Health summary bar ───────────────────────────────────────────────────────
 
-function HealthSummaryBar({ sdk }: { sdk: any }) {
-  const { data } = useQuery({
-    queryKey: ['home-health-summary'],
+function HealthSummaryBar({ sdk, altTextSources }: { sdk: any; altTextSources: AltTextSource[] }) {
+  // Shares the asset scan (and its React Query cache) with the Asset Health module/widget,
+  // so missing-alt counts respect configured alt-text sources everywhere.
+  const { data: scan } = useQuery({
+    queryKey: ['asset-health', altTextSources],
+    queryFn: () => fetchAssetScan(sdk.cma, altTextSources),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: brokenRefs } = useQuery({
+    queryKey: ['home-broken-refs-sample'],
     queryFn: async () => {
-      const [assetsRes, localesRes, entriesRes] = await Promise.all([
-        sdk.cma.asset.getMany({ query: { limit: 200 } }),
-        sdk.cma.locale.getMany({}),
-        sdk.cma.entry.getMany({ query: { limit: 1 } }),
-      ]);
-
-      const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? 'en-US';
-      const assets: any[] = assetsRes.items;
-      const missingAlt = assets.filter((a: any) => !a.fields?.description?.[defaultLocale]).length;
-      const orphanedAssets = assets.filter((a: any) => !a.fields?.file?.[defaultLocale]?.url).length;
-
-      // Broken ref count (lightweight: just check last 50 published entries)
-      let brokenRefs = 0;
-      try {
-        const recentRes = await sdk.cma.entry.getMany({
+      // Broken ref count (lightweight: just check last 50 published entries).
+      // Linked IDs are verified with sys.id[in] existence queries so links to
+      // older entries aren't falsely counted as broken.
+      const [recentRes, localesRes] = await Promise.all([
+        sdk.cma.entry.getMany({
           query: { 'sys.publishedAt[exists]': true, limit: 50, order: '-sys.publishedAt' },
-        });
-        const allEntryIds = new Set<string>(recentRes.items.map((e: any) => e.sys.id));
-        const allAssetIds = new Set<string>(assets.map((a: any) => a.sys.id));
-        for (const entry of recentRes.items) {
-          for (const fieldVal of Object.values(entry.fields) as any[]) {
-            const v = fieldVal?.[defaultLocale];
-            if (v?.sys?.type === 'Link') {
-              const exists = v.sys.linkType === 'Entry' ? allEntryIds.has(v.sys.id) : allAssetIds.has(v.sys.id);
-              if (!exists) brokenRefs++;
-            }
+        }),
+        sdk.cma.locale.getMany({}),
+      ]);
+      const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? 'en-US';
+
+      const linkedEntryIds = new Set<string>();
+      const linkedAssetIds = new Set<string>();
+      for (const entry of recentRes.items) {
+        for (const fieldVal of Object.values(entry.fields) as any[]) {
+          const v = fieldVal?.[defaultLocale];
+          const links = Array.isArray(v) ? v : [v];
+          for (const link of links) {
+            if (link?.sys?.type !== 'Link') continue;
+            if (link.sys.linkType === 'Entry') linkedEntryIds.add(link.sys.id);
+            if (link.sys.linkType === 'Asset') linkedAssetIds.add(link.sys.id);
           }
         }
-      } catch { /* skip */ }
+      }
 
-      return {
-        totalEntries: entriesRes.total,
-        totalAssets: assets.length,
-        missingAlt,
-        orphanedAssets,
-        brokenRefs,
+      const findMissing = async (type: 'entry' | 'asset', ids: Set<string>) => {
+        const missing = new Set(ids);
+        const idList = [...ids];
+        for (let i = 0; i < idList.length; i += 100) {
+          const chunk = idList.slice(i, i + 100);
+          const res = await sdk.cma[type].getMany({
+            query: { 'sys.id[in]': chunk.join(','), select: 'sys.id', limit: 100 },
+          });
+          res.items.forEach((item: any) => missing.delete(item.sys.id));
+        }
+        return missing.size;
       };
+
+      const [missingEntries, missingAssets] = await Promise.all([
+        findMissing('entry', linkedEntryIds),
+        findMissing('asset', linkedAssetIds),
+      ]);
+      return missingEntries + missingAssets;
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  const data = scan
+    ? {
+        totalEntries: scan.totalEntries,
+        totalAssets: scan.rows.length,
+        missingAlt: scan.rows.filter((r) => !r.hasAltText).length,
+        orphanedAssets: scan.rows.filter((r) => r.isOrphan).length,
+        brokenRefs: brokenRefs ?? 0,
+      }
+    : null;
 
   if (!data) return null;
 
@@ -289,7 +314,7 @@ const Home = () => {
         </Flex>
 
         {/* Health summary */}
-        <HealthSummaryBar sdk={sdk as any} />
+        <HealthSummaryBar sdk={sdk as any} altTextSources={params.altTextSources ?? DEFAULT_ALT_TEXT_SOURCES} />
 
         {/* Widget grid */}
         {sortedModules.length === 0 ? (

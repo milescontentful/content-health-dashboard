@@ -2,43 +2,27 @@ import { useSDK } from '@contentful/react-apps-toolkit';
 import { useQuery } from '@tanstack/react-query';
 import { Flex, Text, Card, Badge, Spinner, TextLink } from '@contentful/f36-components';
 import type { HomeWidgetProps } from '../types';
+import { DEFAULT_ALT_TEXT_SOURCES, fetchAssetScan } from './assetHealthLogic';
 
-export function AssetHealthWidget({ onNavigate }: HomeWidgetProps) {
+export function AssetHealthWidget({ installationParams, onNavigate }: HomeWidgetProps) {
   const sdk = useSDK();
+  const altTextSources = installationParams.altTextSources ?? DEFAULT_ALT_TEXT_SOURCES;
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['asset-health-widget'],
-    queryFn: async () => {
-      const [assetsRes, localesRes, entriesRes] = await Promise.all([
-        (sdk.cma as any).asset.getMany({ query: { limit: 200 } }),
-        (sdk.cma as any).locale.getMany({}),
-        (sdk.cma as any).entry.getMany({ query: { limit: 500 } }),
-      ]);
-      const defaultLocale: string = localesRes.items.find((l: any) => l.default)?.code ?? 'en-US';
-      const linkedIds = new Set<string>();
-      for (const entry of entriesRes.items) {
-        for (const fv of Object.values(entry.fields) as any[]) {
-          const v = fv?.[defaultLocale];
-          if (v?.sys?.type === 'Asset') linkedIds.add(v.sys.id);
-          if (Array.isArray(v)) v.forEach((item: any) => { if (item?.sys?.type === 'Asset') linkedIds.add(item.sys.id); });
-        }
-      }
-      const assets = assetsRes.items;
-      return {
-        total: assets.length,
-        orphans: assets.filter((a: any) => !linkedIds.has(a.sys.id)).length,
-        missingAlt: assets.filter((a: any) => {
-          const desc = a.fields?.description?.[defaultLocale];
-          return !desc;
-        }).length,
-        oversized: assets.filter((a: any) => {
-          const size = a.fields?.file?.[defaultLocale]?.details?.size ?? 0;
-          return size > 500 * 1024;
-        }).length,
-      };
-    },
+  // Same query key as the Asset Health module + summary bar — one shared fetch.
+  const { data: scan, isLoading } = useQuery({
+    queryKey: ['asset-health', altTextSources],
+    queryFn: () => fetchAssetScan(sdk.cma as any, altTextSources),
     staleTime: 10 * 60 * 1000,
   });
+
+  const data = scan
+    ? {
+        total: scan.rows.length,
+        orphans: scan.rows.filter((r) => r.isOrphan).length,
+        missingAlt: scan.rows.filter((r) => !r.hasAltText).length,
+        oversized: scan.rows.filter((r) => r.size > 500 * 1024).length,
+      }
+    : null;
 
   return (
     <Card padding="default" style={{ height: '100%' }}>
