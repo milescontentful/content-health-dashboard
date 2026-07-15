@@ -12,7 +12,7 @@
  *   https://www.contentful.com/developers/docs/extensibility/app-framework/functions/#use-case-app-actions
  *   https://www.contentful.com/developers/docs/extensibility/app-framework/working-with-functions/
  */
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useSDK } from '@contentful/react-apps-toolkit';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -33,6 +33,7 @@ import { invokeAppActionAndWait } from '../../lib/aiActions';
 import { APP_ACTION_IDS } from '../../lib/appActions';
 import type { ModuleProps } from '../types';
 import { extractRichText } from '../../lib/richText';
+import { entryTitle } from '../../lib/entryTitle';
 import { checkCompleteness, type CompletenessIssue } from '../../lib/completeness';
 
 interface GradeResult {
@@ -137,6 +138,11 @@ export function AiAudit({ installationParams }: ModuleProps) {
     },
   });
 
+  // Land ready: pre-select the first content type (audit still runs on demand)
+  useEffect(() => {
+    if (!contentTypeId && ctData?.length) setContentTypeId(ctData[0].sys.id);
+  }, [ctData, contentTypeId]);
+
   const selectedCt = ctData?.find((ct) => ct.sys.id === contentTypeId);
   const textFields = selectedCt?.fields.filter((f) => ['Symbol', 'Text', 'RichText'].includes(f.type)) ?? [];
 
@@ -158,10 +164,9 @@ export function AiAudit({ installationParams }: ModuleProps) {
     setProgress({ done: 0, total: entries.length });
 
     const gradeEntry = async (entry: any): Promise<GradeResult> => {
-      const firstFieldVal = Object.values(entry.fields)[0] as any;
       const title = titleField
         ? String(entry.fields[titleField]?.[defaultLocale] ?? entry.sys.id)
-        : String(Object.values(firstFieldVal ?? {})[0] ?? entry.sys.id);
+        : entryTitle(entry, defaultLocale);
 
       const bodyVal = bodyField ? entry.fields[bodyField]?.[defaultLocale] : undefined;
       const body =

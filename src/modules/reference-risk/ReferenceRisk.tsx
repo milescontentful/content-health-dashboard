@@ -17,6 +17,7 @@ import { DownloadSimpleIcon, WarningIcon } from '@contentful/f36-icons';
 import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
 import type { ModuleProps } from '../types';
+import { entryTitle as getEntryTitle } from '../../lib/entryTitle';
 
 interface EntryRef {
   entryId: string;
@@ -93,8 +94,7 @@ async function analyseReferences(sdk: ReturnType<typeof useSDK>) {
   const brokenRefs: EntryRef[] = [];
 
   for (const entry of allEntries) {
-    const firstFieldVal = Object.values(entry.fields)[0] as any;
-    const entryTitle = firstFieldVal ? String(Object.values(firstFieldVal)[0] ?? entry.sys.id) : entry.sys.id;
+    const entryTitle = getEntryTitle(entry, defaultLocale);
     const contentType = entry.sys.contentType?.sys?.id ?? '';
 
     for (const [fieldId, fieldVal] of Object.entries(entry.fields) as [string, any][]) {
@@ -154,10 +154,9 @@ async function analyseReferences(sdk: ReturnType<typeof useSDK>) {
   const orphanedEntries: OrphanedEntry[] = allEntries
     .filter((e: any) => !inboundMap.has(e.sys.id))
     .map((e: any) => {
-      const firstFieldVal = Object.values(e.fields)[0] as any;
       return {
         id: e.sys.id,
-        title: firstFieldVal ? String(Object.values(firstFieldVal)[0] ?? e.sys.id) : e.sys.id,
+        title: getEntryTitle(e, defaultLocale),
         contentType: e.sys.contentType?.sys?.id ?? '',
         updatedAt: e.sys.updatedAt,
         status: entryStatus(e),
@@ -169,10 +168,9 @@ async function analyseReferences(sdk: ReturnType<typeof useSDK>) {
     .map((e: any) => {
       const count = inboundMap.get(e.sys.id)?.length ?? 0;
       if (count < 5) return null;
-      const firstFieldVal = Object.values(e.fields)[0] as any;
       return {
         id: e.sys.id,
-        title: firstFieldVal ? String(Object.values(firstFieldVal)[0] ?? e.sys.id) : e.sys.id,
+        title: getEntryTitle(e, defaultLocale),
         contentType: e.sys.contentType?.sys?.id ?? '',
         inboundCount: count,
         status: entryStatus(e),

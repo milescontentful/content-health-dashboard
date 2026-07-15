@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSDK } from '@contentful/react-apps-toolkit';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -20,6 +20,7 @@ import { downloadCsv, formatDateForCsv } from '../../lib/csv';
 import { openEntryInNewTab } from '../../lib/openInNewTab';
 import { scoreSEO, scoreAEO, scoreGEO, type ScoreResult } from './scorer';
 import type { ModuleProps } from '../types';
+import { entryTitle } from '../../lib/entryTitle';
 
 function SimpleProgress({ value }: { value: number }) {
   return (
@@ -180,6 +181,13 @@ export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
     ? ctData?.filter((ct) => seoPageContentTypes.includes(ct.sys.id))
     : ctData;
 
+  // Land with data: auto-select the first eligible content type
+  useEffect(() => {
+    if (!contentTypeId && filteredCtData?.length) {
+      setContentTypeId(filteredCtData[0].sys.id);
+    }
+  }, [filteredCtData, contentTypeId]);
+
   const { data: auditData, isLoading } = useQuery({
     queryKey: ['seo-audit', contentTypeId],
     queryFn: async (): Promise<{ rows: AuditRow[]; total: number }> => {
@@ -200,8 +208,7 @@ export function SeoAeoGeoAudit({ installationParams }: ModuleProps) {
       }
 
       const rows = res.items.map((entry: any) => {
-        const firstField = Object.values(entry.fields)[0] as any;
-        const title = firstField ? String(Object.values(firstField)[0] ?? entry.sys.id) : entry.sys.id;
+        const title = entryTitle(entry, defaultLocale);
         const seo = scoreSEO(entry.fields, defaultLocale, fieldNames);
         const aeo = scoreAEO(entry.fields, defaultLocale, fieldNames);
         const geo = scoreGEO(entry.fields, defaultLocale, fieldNames);

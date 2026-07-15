@@ -29,6 +29,8 @@ function TabBar({
         borderBottom: '1px solid #e5e9ed',
         padding: '0 24px',
         background: '#fff',
+        overflowX: 'auto',
+        scrollbarWidth: 'thin',
       }}
     >
       {modules.map((mod) => {

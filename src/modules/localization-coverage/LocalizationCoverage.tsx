@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useSDK } from '@contentful/react-apps-toolkit';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -18,6 +18,7 @@ import { openEntryInNewTab } from '../../lib/openInNewTab';
 import { invokeAppActionAndWait } from '../../lib/aiActions';
 import { APP_ACTION_IDS } from '../../lib/appActions';
 import type { ModuleProps } from '../types';
+import { entryTitle } from '../../lib/entryTitle';
 
 interface LocaleField {
   [locale: string]: unknown;
@@ -84,19 +85,14 @@ async function fetchEntriesForContentType(
     (ct.fields as ContentTypeField[]).filter(f => f.localized).map(f => f.id)
   );
 
-  // Display field (first field declared on the content type) for title resolution
+  // Display field for title resolution — prefer en-US → default locale; must be
+  // a string (a reference here would crash React), else fall back to any string field
   const displayFieldId: string | undefined = (ct as any).displayField;
 
   const rows: EntryRow[] = res.items.map((entry: any) => {
-    // Resolve title: prefer en-US → defaultLocale → first available value
-    const titleRaw = displayFieldId
-      ? (entry.fields[displayFieldId] as LocaleField | undefined)
-      : (Object.values(entry.fields)[0] as LocaleField | undefined);
-    const title: string =
-      (titleRaw?.['en-US'] as string | undefined) ??
-      (titleRaw?.[defaultLocale] as string | undefined) ??
-      (titleRaw ? (Object.values(titleRaw)[0] as string) : undefined) ??
-      entry.sys.id;
+    const titleRaw = displayFieldId ? (entry.fields[displayFieldId] as LocaleField | undefined) : undefined;
+    const candidate = titleRaw?.['en-US'] ?? titleRaw?.[defaultLocale] ?? (titleRaw ? Object.values(titleRaw)[0] : undefined);
+    const title: string = typeof candidate === 'string' && candidate.trim() ? candidate : entryTitle(entry, defaultLocale);
 
     const localeMap: Record<string, boolean> = {};
     for (const locale of locales) {
@@ -164,6 +160,13 @@ export function LocalizationCoverage({ installationParams }: ModuleProps) {
   });
   const entries = entriesData?.rows;
   const entriesTotal = entriesData?.total ?? 0;
+
+  // Land with data: auto-select the first localizable content type
+  useEffect(() => {
+    if (!selectedCtId && meta?.contentTypes?.length) {
+      setSelectedCtId(meta.contentTypes[0].sys.id);
+    }
+  }, [meta, selectedCtId]);
 
   const handleTranslate = useCallback(async (
     entryId: string,
