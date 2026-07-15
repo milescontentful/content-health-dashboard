@@ -86,7 +86,7 @@ async function fetchEntriesForContentType(
   const displayFieldId: string | undefined = (ct as any).displayField;
 
   const rows: EntryRow[] = res.items.map((entry: any) => {
-    const titleRaw = displayFieldId ? (entry.fields[displayFieldId] as LocaleField | undefined) : undefined;
+    const titleRaw = displayFieldId ? (entry.fields[displayFieldId] as Record<string, unknown> | undefined) : undefined;
     const candidate = titleRaw?.['en-US'] ?? titleRaw?.[defaultLocale] ?? (titleRaw ? Object.values(titleRaw)[0] : undefined);
     const title: string = typeof candidate === 'string' && candidate.trim() ? candidate : entryTitle(entry, defaultLocale);
 
