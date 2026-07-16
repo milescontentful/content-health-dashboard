@@ -239,6 +239,34 @@ The module appears automatically in the tab bar, Config Screen, and Home grid.
 
 ---
 
+## Status & roadmap
+
+Everything above is **shipped**: bundle uploaded and active, App Actions synced, `entry-sidebar` location registered, and the `Entry.publish` event subscription live (as of July 2026).
+
+### Outstanding — quick manual steps
+
+- [ ] **Enable the sidebar per content type** — Content model → *(type)* → Sidebar settings → add "Content Health Dashboard". The location is registered; each content type opts in.
+- [ ] **Verify auto-grade on publish end-to-end** — publish an entry in a space with the app installed (needs a `grade-content` AI Action ID or OpenAI key configured); the "🩺 Content Health" comment should appear on the entry within a few seconds.
+- [ ] **Configure Asset Health alt-text sources** in real demo spaces that use wrapper types (Config Screen → Asset Health, e.g. `assetWrapper` → `caption`).
+
+### Next up — good candidate features (roughly in order of demo value)
+
+1. **Health score trend history** — persist a score snapshot per scan (installation params or a hidden `healthSnapshot` entry) so the hero can show trend arrows and a sparkline ("space went from C to B this month"). The exec story gets a time axis.
+2. **Organization rollup view** — when Contentful ships the **organization app location**, render a spaces × score grid using `computeSpaceHealth` per space (it's already a pure function over plain data). Until then, a Page-location prototype could iterate spaces the token can reach.
+3. **Content Health Agent** — a chat surface ("what should I fix first?") backed by an App Function running an LLM tool-use loop over the same health data. Also the pre-work for the **`agent` app definition location**, which exists in CMA typings but is currently gated to allowlisted orgs (SE contact: ask Contentful Support / DevRel for EAP access; register via `cma.appDefinition.update` — the manifest schema doesn't accept it yet).
+4. **Sidebar quick actions** — "Generate alt text" for the entry's linked assets and "Fix meta description" (write the AI suggestion back to the field) directly from the sidebar.
+5. **Wire the inert config** — Ninetailed impression/conversion analytics (`ninetailedApiKey`) and Contentful Analytics (`analyticsApiKey`, when the API is GA). Both fields exist and are labeled "Not yet wired".
+6. **Scheduled digest** — reuse `onEntryPublish`'s plumbing with a cron-style trigger to post a weekly health report (email/Slack via webhook, or a Comment digest on a pinned entry).
+
+### Known ceilings (deliberate, fine for demo spaces)
+
+- Entry scans cap at ~2,000 entries per module (assets are fully paginated); the UI reports "scanned N of M" honestly. Reuse the `fetchAllEntries` adaptive pagination if a real customer space needs full coverage.
+- The AI Action response parser expects the `QUALITY SCORE / SUMMARY / TOP SUGGESTIONS` plain-text format (or JSON) — coupled to the prompt in `docs/ai-actions.md`.
+- Localization translate buttons handle Symbol/Text fields only (no rich text translation).
+- Demo mode (`VITE_MOCK_SDK=1`) covers home/page/config/sidebar but stubs releases, scheduled actions, and AI Action proxying with canned data.
+
+---
+
 ## Provenance
 
 Forked from [`contentful/apps/apps/content-insights`](https://github.com/contentful/apps/tree/master/apps/content-insights) (Apache 2.0). Extension modules and App Functions are original work built for Contentful Solutions Engineering demos.
